@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Sale, Item, Profile } from '@/types/database'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from 'date-fns'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 
 interface SalesSummary {
   date: string
@@ -116,6 +119,97 @@ export default function SalesReports() {
   }
 
   const currentReport = selectedPeriod === 'daily' ? dailySales : selectedPeriod === 'weekly' ? weeklySales : monthlySales
+
+  const exportToPDF = () => {
+    const doc = new jsPDF()
+    
+    // Title
+    doc.setFontSize(18)
+    doc.text('La Cuisine - Sales Report', 14, 20)
+    
+    // Period
+    doc.setFontSize(12)
+    const periodText = selectedPeriod === 'daily' 
+      ? `Daily Report - ${format(new Date(selectedDate), 'MMMM dd, yyyy')}`
+      : selectedPeriod === 'weekly'
+      ? `Weekly Report - Week of ${format(startOfWeek(new Date(selectedDate)), 'MMM dd')}`
+      : `Monthly Report - ${format(startOfMonth(new Date(selectedDate)), 'MMMM yyyy')}`
+    doc.text(periodText, 14, 30)
+    
+    // Summary
+    if (currentReport) {
+      doc.setFontSize(10)
+      doc.text(`Total Sales: ₦${currentReport.total_sales.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, 40)
+      doc.text(`Total Transactions: ${currentReport.sales_count}`, 14, 46)
+      doc.text(`Items Sold: ${currentReport.total_items}`, 14, 52)
+    }
+    
+    // Table
+    const tableData = salesDetails.map(sale => [
+      format(new Date(sale.date), 'MMM dd, yyyy'),
+      sale.item?.name || 'Unknown',
+      `${sale.quantity} ${sale.item?.unit || ''}`,
+      `₦${sale.price_per_unit.toFixed(2)}`,
+      `₦${sale.total_price.toFixed(2)}`,
+      sale.payment_mode === 'cash' ? 'Cash' : 'Transfer',
+      sale.description || '-',
+    ])
+    
+    autoTable(doc, {
+      head: [['Date', 'Item', 'Quantity', 'Price/Unit', 'Total', 'Payment', 'Description']],
+      body: tableData,
+      startY: 60,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [79, 70, 229] },
+    })
+    
+    doc.save(`sales-report-${selectedPeriod}-${format(new Date(), 'yyyy-MM-dd')}.pdf`)
+  }
+
+  const exportToExcel = () => {
+    const worksheetData = [
+      ['La Cuisine - Sales Report'],
+      [selectedPeriod === 'daily' 
+        ? `Daily Report - ${format(new Date(selectedDate), 'MMMM dd, yyyy')}`
+        : selectedPeriod === 'weekly'
+        ? `Weekly Report - Week of ${format(startOfWeek(new Date(selectedDate)), 'MMM dd')}`
+        : `Monthly Report - ${format(startOfMonth(new Date(selectedDate)), 'MMMM yyyy')}`],
+      [],
+      currentReport ? [
+        `Total Sales: ₦${currentReport.total_sales.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Total Transactions: ${currentReport.sales_count}`,
+        `Items Sold: ${currentReport.total_items}`
+      ] : [],
+      [],
+      ['Date', 'Item', 'Quantity', 'Price/Unit', 'Total Price', 'Payment Mode', 'Description'],
+      ...salesDetails.map(sale => [
+        format(new Date(sale.date), 'MMM dd, yyyy'),
+        sale.item?.name || 'Unknown',
+        `${sale.quantity} ${sale.item?.unit || ''}`,
+        sale.price_per_unit,
+        sale.total_price,
+        sale.payment_mode === 'cash' ? 'Cash' : 'Transfer',
+        sale.description || '-',
+      ])
+    ]
+    
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Sales Report')
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Date
+      { wch: 20 }, // Item
+      { wch: 12 }, // Quantity
+      { wch: 12 }, // Price/Unit
+      { wch: 12 }, // Total
+      { wch: 12 }, // Payment
+      { wch: 30 }, // Description
+    ]
+    
+    XLSX.writeFile(wb, `sales-report-${selectedPeriod}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
+  }
 
   return (
     <div>

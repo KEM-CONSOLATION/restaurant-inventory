@@ -14,6 +14,7 @@ export interface Item {
   name: string
   unit: string
   quantity: number
+  low_stock_threshold: number
   cost_price: number
   selling_price: number
   description: string | null

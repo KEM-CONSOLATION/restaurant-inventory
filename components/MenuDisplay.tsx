@@ -41,7 +41,10 @@ export default function MenuDisplay({ categories, items }: MenuDisplayProps) {
         {categories.length === 0 && items.length === 0 ? (
           <div className="text-center py-20">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">Menu Coming Soon</h2>
-            <p className="text-gray-600">We're preparing something delicious for you!</p>
+            <p className="text-gray-600 mb-4">We're preparing something delicious for you!</p>
+            <p className="text-sm text-gray-500">
+              Admin can add menu items from Management → Digital Menu
+            </p>
           </div>
         ) : (
           <div className="space-y-12">

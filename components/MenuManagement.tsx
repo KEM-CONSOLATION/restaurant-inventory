@@ -34,6 +34,14 @@ export default function MenuManagement() {
   useEffect(() => {
     fetchCategories()
     fetchItems()
+    
+    // Refresh every 30 seconds to show updates
+    const interval = setInterval(() => {
+      fetchCategories()
+      fetchItems()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const fetchCategories = async () => {
@@ -202,6 +210,26 @@ export default function MenuManagement() {
 
   return (
     <div>
+      <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-blue-900 mb-1">Preview Menu</h3>
+            <p className="text-sm text-blue-700">View how customers will see your menu</p>
+          </div>
+          <a
+            href="/menu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors cursor-pointer flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            View Menu Page
+          </a>
+        </div>
+      </div>
+
       {message && (
         <div className={`mb-4 p-3 rounded ${
           message.type === 'success' 

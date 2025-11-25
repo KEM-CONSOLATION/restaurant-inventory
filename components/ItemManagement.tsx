@@ -12,6 +12,7 @@ export default function ItemManagement() {
     name: '',
     unit: 'pieces',
     quantity: '',
+    low_stock_threshold: '10',
     cost_price: '',
     selling_price: '',
     description: '',
@@ -48,6 +49,7 @@ export default function ItemManagement() {
             name: formData.name,
             unit: formData.unit,
             quantity: parseInt(formData.quantity, 10) || 0,
+            low_stock_threshold: parseInt(formData.low_stock_threshold, 10) || 10,
             cost_price: parseFloat(formData.cost_price) || 0,
             selling_price: parseFloat(formData.selling_price) || 0,
             description: formData.description || null,
@@ -62,6 +64,7 @@ export default function ItemManagement() {
           name: formData.name,
           unit: formData.unit,
           quantity: parseInt(formData.quantity, 10) || 0,
+          low_stock_threshold: parseInt(formData.low_stock_threshold, 10) || 10,
           cost_price: parseFloat(formData.cost_price) || 0,
           selling_price: parseFloat(formData.selling_price) || 0,
           description: formData.description || null,
@@ -71,7 +74,7 @@ export default function ItemManagement() {
         setMessage({ type: 'success', text: 'Item created successfully!' })
       }
 
-      setFormData({ name: '', unit: 'pieces', quantity: '', cost_price: '', selling_price: '', description: '' })
+      setFormData({ name: '', unit: 'pieces', quantity: '', low_stock_threshold: '10', cost_price: '', selling_price: '', description: '' })
       setEditingItem(null)
       setShowForm(false)
       fetchItems()
@@ -89,6 +92,7 @@ export default function ItemManagement() {
       name: item.name,
       unit: item.unit,
       quantity: item.quantity.toString(),
+      low_stock_threshold: (item.low_stock_threshold || 10).toString(),
       cost_price: item.cost_price?.toString(),
       selling_price: item.selling_price?.toString(),
       description: item.description || '',
@@ -156,7 +160,7 @@ export default function ItemManagement() {
           onClick={() => {
             setShowForm(!showForm)
             setEditingItem(null)
-            setFormData({ name: '', unit: 'pieces', quantity: '', cost_price: '', selling_price: '', description: '' })
+            setFormData({ name: '', unit: 'pieces', quantity: '', low_stock_threshold: '10', cost_price: '', selling_price: '', description: '' })
           }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 cursor-pointer transition-colors"
         >
@@ -219,21 +223,40 @@ export default function ItemManagement() {
               </select>
             </div>
 
-            <div>
-              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                Current Quantity
-              </label>
-              <input
-                id="quantity"
-                type="number"
-                step="1"
-                min="0"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
-                placeholder="0"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Quantity *
+                </label>
+                <input
+                  id="quantity"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label htmlFor="low_stock_threshold" className="block text-sm font-medium text-gray-700 mb-1">
+                  Low Stock Threshold *
+                </label>
+                <input
+                  id="low_stock_threshold"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.low_stock_threshold}
+                  onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
+                  placeholder="10"
+                />
+                <p className="mt-1 text-xs text-gray-500">Alert when quantity falls below this</p>
+              </div>
             </div>
 
             <div>
@@ -315,6 +338,12 @@ export default function ItemManagement() {
                   Quantity
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Threshold
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cost Price
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -331,7 +360,7 @@ export default function ItemManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                     No items found. Add your first item to get started.
                   </td>
                 </tr>

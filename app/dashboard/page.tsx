@@ -7,6 +7,7 @@ import ExpensesForm from '@/components/ExpensesForm'
 import SalesTrendChart from '@/components/SalesTrendChart'
 import TopItemsChart from '@/components/TopItemsChart'
 import DashboardStatsCards from '@/components/DashboardStatsCards'
+import LowStockAlerts from '@/components/LowStockAlerts'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -38,6 +39,10 @@ export default async function DashboardPage() {
         </div>
 
         <DashboardStatsCards />
+
+        <div className="mt-8">
+          <LowStockAlerts />
+        </div>
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SalesTrendChart />
