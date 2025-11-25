@@ -6,6 +6,7 @@ import { OpeningStock, ClosingStock, Sale, Item, Profile } from '@/types/databas
 import { format } from 'date-fns'
 import ItemManagement from './ItemManagement'
 import UserManagement from './UserManagement'
+import MenuManagement from './MenuManagement'
 
 export default function AdminDashboard() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -13,7 +14,7 @@ export default function AdminDashboard() {
   const [closingStocks, setClosingStocks] = useState<(ClosingStock & { item: Item; recorded_by_profile: Profile })[]>([])
   const [sales, setSales] = useState<(Sale & { item: Item; recorded_by_profile: Profile })[]>([])
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'users'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'users' | 'menu'>('overview')
 
   useEffect(() => {
     fetchData()
@@ -304,6 +305,7 @@ export default function AdminDashboard() {
 
       {activeTab === 'items' && <ItemManagement />}
       {activeTab === 'users' && <UserManagement />}
+      {activeTab === 'menu' && <MenuManagement />}
     </div>
   )
 }

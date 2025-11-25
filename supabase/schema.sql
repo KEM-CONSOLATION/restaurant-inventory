@@ -77,6 +77,31 @@ CREATE TABLE public.expenses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- Menu Categories table
+CREATE TABLE public.menu_categories (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Menu Items table
+CREATE TABLE public.menu_items (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  category_id UUID REFERENCES public.menu_categories(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  price DECIMAL(10, 2) NOT NULL,
+  image_url TEXT,
+  is_available BOOLEAN NOT NULL DEFAULT true,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- Create indexes for better query performance
 CREATE INDEX idx_opening_stock_date ON public.opening_stock(date);
 CREATE INDEX idx_opening_stock_item ON public.opening_stock(item_id);
@@ -86,6 +111,9 @@ CREATE INDEX idx_sales_date ON public.sales(date);
 CREATE INDEX idx_sales_item ON public.sales(item_id);
 CREATE INDEX idx_expenses_date ON public.expenses(date);
 CREATE INDEX idx_expenses_recorded_by ON public.expenses(recorded_by);
+CREATE INDEX idx_menu_items_category ON public.menu_items(category_id);
+CREATE INDEX idx_menu_items_available ON public.menu_items(is_available);
+CREATE INDEX idx_menu_categories_active ON public.menu_categories(is_active);
 
 -- Row Level Security (RLS) Policies
 
@@ -96,6 +124,8 @@ ALTER TABLE public.opening_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.closing_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Users can view their own profile"
