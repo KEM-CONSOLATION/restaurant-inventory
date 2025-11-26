@@ -29,7 +29,12 @@ export default async function OpeningStockPage() {
       <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Opening Stock</h1>
-          <p className="mt-2 text-gray-600">Automatically calculated from previous day's closing stock</p>
+          <p className="mt-2 text-gray-600">Automatically calculated and created from previous day's closing stock</p>
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>✓ Automatic:</strong> Opening stock is automatically created from yesterday's closing stock. No manual action required.
+            </p>
+          </div>
         </div>
 
         <DailyStockReport type="opening" />

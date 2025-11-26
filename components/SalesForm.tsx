@@ -24,6 +24,11 @@ export default function SalesForm() {
     fetchItems()
     fetchSales()
     checkUserRole()
+    // Ensure date is always today
+    const today = format(new Date(), 'yyyy-MM-dd')
+    if (date !== today) {
+      setDate(today)
+    }
   }, [date])
 
   useEffect(() => {
@@ -81,9 +86,8 @@ export default function SalesForm() {
       .eq('date', date)
       .order('created_at', { ascending: false })
 
-    if (error) {
-    } else {
-      setSales(data || [])
+    if (!error && data) {
+      setSales(data)
     }
   }
 
@@ -100,13 +104,14 @@ export default function SalesForm() {
 
       if (!user) throw new Error('Not authenticated')
 
-      // Restrict staff to only record sales for today
+      // Restrict sales to today only (for everyone - admin and staff)
       const today = format(new Date(), 'yyyy-MM-dd')
-      if (userRole === 'staff' && date !== today) {
+      if (date !== today) {
         setMessage({ 
           type: 'error', 
-          text: 'Staff can only record sales for today. Please select today\'s date.' 
+          text: 'Sales can only be recorded for today\'s date to avoid confusion. Please use today\'s date.' 
         })
+        setDate(today) // Reset to today
         setLoading(false)
         return
       }
@@ -236,13 +241,19 @@ export default function SalesForm() {
   }
 
   const handleEdit = (sale: Sale) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    // Only allow editing if it's today's sale
+    if (sale.date !== today) {
+      setMessage({ type: 'error', text: 'Can only edit sales records for today. Past dates cannot be modified.' })
+      return
+    }
     setEditingSale(sale)
     setSelectedItem(sale.item_id)
     setQuantity(sale.quantity.toString())
     setPricePerUnit(sale.price_per_unit.toString())
     setTotalPrice(sale.total_price.toString())
     setPaymentMode(sale.payment_mode)
-    setDate(sale.date)
+    setDate(today) // Always use today's date
     setDescription(sale.description || '')
   }
 
@@ -326,22 +337,29 @@ export default function SalesForm() {
 
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date
+            Date <span className="text-xs text-gray-500">(Today only)</span>
           </label>
           <input
             id="date"
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              const selectedDate = e.target.value
+              const today = format(new Date(), 'yyyy-MM-dd')
+              if (selectedDate !== today) {
+                setMessage({ type: 'error', text: 'Sales can only be recorded for today\'s date.' })
+                setDate(today)
+              } else {
+                setDate(selectedDate)
+              }
+            }}
+            max={format(new Date(), 'yyyy-MM-dd')}
+            min={format(new Date(), 'yyyy-MM-dd')}
             required
-            disabled={userRole === 'staff'}
-            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer ${
-              userRole === 'staff' ? 'bg-gray-100 cursor-not-allowed' : ''
-            }`}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-gray-50 cursor-not-allowed"
+            readOnly
           />
-          {userRole === 'staff' && (
-            <p className="mt-1 text-xs text-gray-500">Staff can only record sales for today</p>
-          )}
+          <p className="mt-1 text-xs text-gray-500">Sales can only be recorded for today to avoid confusion</p>
         </div>
 
         <div>
@@ -554,18 +572,24 @@ export default function SalesForm() {
                     </td>
                     {userRole === 'admin' && (
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(sale)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sale.id)}
-                          className="text-red-600 hover:text-red-900 cursor-pointer"
-                        >
-                          Delete
-                        </button>
+                        {sale.date === format(new Date(), 'yyyy-MM-dd') ? (
+                          <>
+                            <button
+                              onClick={() => handleEdit(sale)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(sale.id)}
+                              className="text-red-600 hover:text-red-900 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">Past date</span>
+                        )}
                       </td>
                     )}
                   </tr>

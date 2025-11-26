@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardLayout from '@/components/DashboardLayout'
-import DailyStockReport from '@/components/DailyStockReport'
+import RestockingForm from '@/components/RestockingForm'
 
-export default async function ClosingStockPage() {
+export default async function RestockingPage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -28,16 +28,11 @@ export default async function ClosingStockPage() {
     <DashboardLayout user={profile}>
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Closing Stock</h1>
-          <p className="mt-2 text-gray-600">Automatically calculated and saved: Opening Stock + Restocking - Sales</p>
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
-              <strong>✓ Automatic:</strong> Closing stock is automatically calculated and saved. These values will automatically become tomorrow's opening stock.
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Restocking</h1>
+          <p className="mt-2 text-gray-600">Add quantity to items. This will be added to the opening stock for calculations.</p>
         </div>
 
-        <DailyStockReport type="closing" />
+        <RestockingForm />
       </div>
     </DashboardLayout>
   )

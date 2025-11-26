@@ -47,7 +47,7 @@ export default function ItemManagement() {
           .update({
             name: formData.name,
             unit: formData.unit,
-            quantity: parseInt(formData.quantity, 10) || 0,
+            // Don't update quantity when editing - it's managed through opening stock and restocking
             low_stock_threshold: parseInt(formData.low_stock_threshold, 10) || 10,
             cost_price: parseFloat(formData.cost_price) || 0,
             selling_price: parseFloat(formData.selling_price) || 0,
@@ -89,7 +89,7 @@ export default function ItemManagement() {
     setFormData({
       name: item.name,
       unit: item.unit,
-      quantity: item.quantity.toString(),
+      quantity: '', // Don't show quantity when editing
       low_stock_threshold: (item.low_stock_threshold || 10).toString(),
       cost_price: item.cost_price?.toString(),
       selling_price: item.selling_price?.toString(),
@@ -221,10 +221,27 @@ export default function ItemManagement() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="low_stock_threshold" className="block text-sm font-medium text-gray-700 mb-1">
+                Low Stock Threshold *
+              </label>
+              <input
+                id="low_stock_threshold"
+                type="number"
+                step="1"
+                min="0"
+                value={formData.low_stock_threshold}
+                onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
+                placeholder="10"
+              />
+              <p className="mt-1 text-xs text-gray-500">Alert when quantity falls below this</p>
+            </div>
+            {!editingItem && (
               <div>
                 <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Quantity *
+                  Initial Quantity * (for new items only)
                 </label>
                 <input
                   id="quantity"
@@ -237,25 +254,17 @@ export default function ItemManagement() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                   placeholder="0"
                 />
+                <p className="mt-1 text-xs text-gray-500">Note: To update quantities, use the Restocking feature instead of editing items directly.</p>
               </div>
-              <div>
-                <label htmlFor="low_stock_threshold" className="block text-sm font-medium text-gray-700 mb-1">
-                  Low Stock Threshold *
-                </label>
-                <input
-                  id="low_stock_threshold"
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={formData.low_stock_threshold}
-                  onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
-                  placeholder="10"
-                />
-                <p className="mt-1 text-xs text-gray-500">Alert when quantity falls below this</p>
+            )}
+            {editingItem && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Item quantities are managed through Opening Stock and Restocking features. 
+                  To add stock, use the Restocking section instead of editing the item directly.
+                </p>
               </div>
-            </div>
+            )}
 
             <div>
               <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">

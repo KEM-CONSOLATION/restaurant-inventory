@@ -44,6 +44,15 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
       ),
     },
     {
+      name: 'Restocking',
+      href: '/dashboard/restocking',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      ),
+    },
+    {
       name: 'Closing Stock',
       href: '/dashboard/closing-stock',
       icon: (
@@ -191,10 +200,12 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
             <div className="flex-1 lg:hidden" />
             <div className="hidden lg:block">
               <h2 className="text-lg font-semibold text-gray-900">
-                {isActive('/dashboard') && !isActive('/dashboard/opening-stock') && !isActive('/dashboard/closing-stock') && !isActive('/dashboard/sales') && !isActive('/dashboard/history') && !isActive('/dashboard/reports')
+                {isActive('/dashboard') && !isActive('/dashboard/opening-stock') && !isActive('/dashboard/closing-stock') && !isActive('/dashboard/restocking') && !isActive('/dashboard/sales') && !isActive('/dashboard/history') && !isActive('/dashboard/reports')
                   ? 'Dashboard'
                   : isActive('/dashboard/opening-stock')
                   ? 'Opening Stock'
+                  : isActive('/dashboard/restocking')
+                  ? 'Restocking'
                   : isActive('/dashboard/closing-stock')
                   ? 'Closing Stock'
                   : isActive('/dashboard/sales')

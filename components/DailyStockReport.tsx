@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { format, subDays } from 'date-fns'
+import { supabase } from '@/lib/supabase/client'
 
 interface StockReportItem {
   item_id: string
@@ -9,6 +10,8 @@ interface StockReportItem {
   item_unit: string
   current_quantity: number
   opening_stock: number
+  opening_stock_source?: 'previous_closing_stock' | 'item_quantity'
+  restocking?: number
   sales: number
   closing_stock: number
 }
@@ -40,10 +43,92 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       const data = await response.json()
       if (data.success) {
         setReport(data)
+        
+        // Auto-save closing stock if viewing closing stock report
+        if (type === 'closing') {
+          await autoSaveClosingStock()
+        }
+        
+        // Auto-create opening stock if viewing opening stock report
+        if (type === 'opening') {
+          await autoCreateOpeningStock()
+        }
       }
     } catch (error) {
     } finally {
       setLoading(false)
+    }
+  }
+
+  const autoSaveClosingStock = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Check if closing stock already exists for this date
+      const { data: existingClosing } = await supabase
+        .from('closing_stock')
+        .select('id')
+        .eq('date', selectedDate)
+        .limit(1)
+
+      // Only auto-save if no closing stock exists yet
+      if (!existingClosing || existingClosing.length === 0) {
+        const response = await fetch('/api/stock/auto-save-closing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: selectedDate, user_id: user.id }),
+        })
+
+        const result = await response.json()
+        if (result.success) {
+          // Refresh the report to show saved values
+          const reportResponse = await fetch(`/api/stock/report?date=${selectedDate}`)
+          const reportData = await reportResponse.json()
+          if (reportData.success) {
+            setReport(reportData)
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't interrupt user experience
+      console.error('Auto-save closing stock failed:', error)
+    }
+  }
+
+  const autoCreateOpeningStock = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Check if opening stock already exists for this date
+      const { data: existingOpening } = await supabase
+        .from('opening_stock')
+        .select('id')
+        .eq('date', selectedDate)
+        .limit(1)
+
+      // Only auto-create if no opening stock exists yet
+      if (!existingOpening || existingOpening.length === 0) {
+        const response = await fetch('/api/stock/auto-create-opening', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: selectedDate, user_id: user.id }),
+        })
+
+        const result = await response.json()
+        if (result.success && result.records_created > 0) {
+          // Refresh the report to show created values
+          const reportResponse = await fetch(`/api/stock/report?date=${selectedDate}`)
+          const reportData = await reportResponse.json()
+          if (reportData.success) {
+            setReport(reportData)
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't interrupt user experience
+      console.error('Auto-create opening stock failed:', error)
     }
   }
 
@@ -98,9 +183,17 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
             </h2>
             <p className="text-sm text-gray-500 mt-1">
               {type === 'opening'
-                ? 'Automatically calculated from previous day\'s closing stock'
-                : 'Automatically calculated: Opening Stock - Sales'}
+                ? 'Automatically calculated from previous day\'s closing stock. If no closing stock exists, falls back to item\'s current quantity.'
+                : 'Automatically calculated: Opening Stock + Restocking - Sales'}
             </p>
+            {type === 'opening' && report.report.some(item => item.opening_stock_source === 'item_quantity') && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> Some items are using their current quantity as opening stock because no closing stock was recorded for the previous day. 
+                  Make sure to save closing stock records at the end of each day for accurate opening stock calculations.
+                </p>
+              </div>
+            )}
           </div>
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full divide-y divide-gray-200">
@@ -125,6 +218,9 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                         Opening Stock
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Restocking
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Sales/Usage
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -144,6 +240,11 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                       <>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <span className="font-medium">{item.opening_stock}</span> {item.item_unit}
+                          {item.opening_stock_source === 'item_quantity' && (
+                            <span className="ml-2 text-xs text-yellow-600" title="Using item quantity because no closing stock found for previous day">
+                              ⚠
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.current_quantity} {item.item_unit}
@@ -154,6 +255,9 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                       <>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <span className="font-medium">{item.opening_stock}</span> {item.item_unit}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                          <span className="font-medium">+{item.restocking || 0}</span> {item.item_unit}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.sales} {item.item_unit}

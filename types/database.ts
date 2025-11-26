@@ -97,3 +97,15 @@ export interface MenuItem {
   category?: MenuCategory
 }
 
+export interface Restocking {
+  id: string
+  item_id: string
+  quantity: number
+  date: string
+  recorded_by: string
+  notes: string | null
+  created_at: string
+  item?: Item
+  recorded_by_profile?: Profile
+}
+

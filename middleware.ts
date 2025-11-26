@@ -27,27 +27,94 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
 
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+    // Check for refresh token errors
+    if (error) {
+      // Check if it's a refresh token error
+      if (
+        error.code === 'refresh_token_not_found' ||
+        error.message?.includes('refresh_token_not_found') ||
+        error.message?.includes('Invalid Refresh Token') ||
+        (error.status === 400 && error.message?.includes('Refresh Token'))
+      ) {
+        // Clear auth cookies and redirect to login
+        const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url))
+        
+        // Clear all Supabase auth cookies
+        const cookieNames = [
+          'sb-access-token',
+          'sb-refresh-token',
+          'sb-auth-token',
+        ]
+        
+        cookieNames.forEach((cookieName) => {
+          response.cookies.delete(cookieName)
+          response.cookies.delete(`${cookieName}-expires`)
+        })
+
+        // Also clear cookies with the project ref
+        const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]
+        if (projectRef) {
+          cookieNames.forEach((cookieName) => {
+            response.cookies.delete(`${projectRef}-auth-token`)
+            response.cookies.delete(`${projectRef}-auth-token-code-verifier`)
+          })
+        }
+
+        return response
+      }
     }
-  }
 
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      if (!user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
     }
-  }
 
-  if (request.nextUrl.pathname === '/login' && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+      if (!user) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+    }
 
-  return supabaseResponse
+    if (request.nextUrl.pathname === '/login' && user) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    return supabaseResponse
+  } catch (error: any) {
+    // Handle any unexpected errors, especially refresh token errors
+    if (
+      error?.code === 'refresh_token_not_found' ||
+      error?.message?.includes('refresh_token_not_found') ||
+      error?.message?.includes('Invalid Refresh Token') ||
+      (error?.status === 400 && error?.message?.includes('Refresh Token'))
+    ) {
+      const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url))
+      
+      // Clear auth cookies
+      const cookieNames = [
+        'sb-access-token',
+        'sb-refresh-token',
+        'sb-auth-token',
+      ]
+      
+      cookieNames.forEach((cookieName) => {
+        response.cookies.delete(cookieName)
+        response.cookies.delete(`${cookieName}-expires`)
+      })
+
+      return response
+    }
+
+    // For other errors, continue with normal flow
+    return supabaseResponse
+  }
 }
 
 export const config = {

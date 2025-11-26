@@ -122,8 +122,8 @@ restaurant-inventory/
 │   ├── AdminDashboard.tsx      # Admin dashboard component
 │   ├── DashboardLayout.tsx     # Shared layout component
 │   ├── ItemManagement.tsx      # Item CRUD component
-│   ├── OpeningStockForm.tsx    # Opening stock form
-│   ├── ClosingStockForm.tsx    # Closing stock form
+│   ├── DailyStockReport.tsx    # Opening/Closing stock reports
+│   ├── RestockingForm.tsx      # Restocking form
 │   └── SalesForm.tsx           # Sales form
 ├── lib/
 │   └── supabase/

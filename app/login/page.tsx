@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
@@ -13,9 +13,13 @@ function LoginForm() {
   const searchParams = useSearchParams()
 
   const errorParam = searchParams.get('error')
-  if (errorParam === 'unauthorized' && !error) {
-    setError('Your account is not authorized. Please contact an administrator.')
-  }
+  useEffect(() => {
+    if (errorParam === 'unauthorized' && !error) {
+      setError('Your account is not authorized. Please contact an administrator.')
+    } else if (errorParam === 'session_expired' && !error) {
+      setError('Your session has expired. Please sign in again.')
+    }
+  }, [errorParam])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -26,16 +26,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
     }
 
-    // Calculate previous date
-    const prevDate = new Date(date)
+    // Calculate previous date - ensure we're working with date strings in YYYY-MM-DD format
+    const dateObj = new Date(date + 'T00:00:00') // Add time to avoid timezone issues
+    const prevDate = new Date(dateObj)
     prevDate.setDate(prevDate.getDate() - 1)
     const prevDateStr = prevDate.toISOString().split('T')[0]
 
     // Get previous day's closing stock
-    const { data: prevClosingStock } = await supabaseAdmin
+    const { data: prevClosingStock, error: closingStockError } = await supabaseAdmin
       .from('closing_stock')
       .select('item_id, quantity')
       .eq('date', prevDateStr)
+
+    // Log for debugging (remove in production if needed)
+    if (closingStockError) {
+      console.error('Error fetching closing stock:', closingStockError)
+    }
 
     // Get today's sales
     const { data: todaySales } = await supabaseAdmin
@@ -43,18 +49,30 @@ export async function GET(request: NextRequest) {
       .select('item_id, quantity')
       .eq('date', date)
 
+    // Get today's restocking
+    const { data: todayRestocking } = await supabaseAdmin
+      .from('restocking')
+      .select('item_id, quantity')
+      .eq('date', date)
+
     // Calculate opening and closing stock for each item
     const report = items.map((item) => {
       // Opening stock = previous day's closing stock, or item's current quantity if no closing stock
       const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
-      const openingStock = prevClosing ? prevClosing.quantity : item.quantity
+      // IMPORTANT: Use previous day's closing stock if it exists, otherwise fall back to item quantity
+      // This ensures continuity - today's opening stock = yesterday's closing stock
+      const openingStock = prevClosing ? parseFloat(prevClosing.quantity.toString()) : item.quantity
 
       // Calculate total sales for today
       const itemSales = todaySales?.filter((s) => s.item_id === item.id) || []
       const totalSales = itemSales.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
 
-      // Closing stock = opening stock - sales
-      const closingStock = Math.max(0, openingStock - totalSales)
+      // Calculate total restocking for today
+      const itemRestocking = todayRestocking?.filter((r) => r.item_id === item.id) || []
+      const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+
+      // Closing stock = opening stock + restocking - sales
+      const closingStock = Math.max(0, openingStock + totalRestocking - totalSales)
 
       return {
         item_id: item.id,
@@ -62,6 +80,8 @@ export async function GET(request: NextRequest) {
         item_unit: item.unit,
         current_quantity: item.quantity,
         opening_stock: openingStock,
+        opening_stock_source: prevClosing ? 'previous_closing_stock' : 'item_quantity',
+        restocking: totalRestocking,
         sales: totalSales,
         closing_stock: closingStock,
       }
