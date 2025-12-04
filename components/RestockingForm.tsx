@@ -10,6 +10,8 @@ export default function RestockingForm() {
   const [restockings, setRestockings] = useState<(Restocking & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [selectedItem, setSelectedItem] = useState('')
   const [quantity, setQuantity] = useState('')
+  const [costPrice, setCostPrice] = useState('')
+  const [sellingPrice, setSellingPrice] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [loading, setLoading] = useState(false)
@@ -34,12 +36,21 @@ export default function RestockingForm() {
   useEffect(() => {
     if (selectedItem && date) {
       fetchOpeningStockAndTotal()
+      // Load current prices when item is selected
+      const item = items.find(i => i.id === selectedItem)
+      if (item) {
+        if (!editingRestocking) {
+          // Only set prices if not editing (preserve edited prices)
+          setCostPrice(item.cost_price.toString())
+          setSellingPrice(item.selling_price.toString())
+        }
+      }
     } else {
       setOpeningStock(null)
       setCurrentTotal(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedItem, date])
+  }, [selectedItem, date, items])
 
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -164,6 +175,37 @@ export default function RestockingForm() {
         return
       }
 
+      // Update item prices if provided
+      if (costPrice || sellingPrice) {
+        const updateData: { cost_price?: number; selling_price?: number } = {}
+        
+        if (costPrice) {
+          const costPriceValue = parseFloat(costPrice)
+          if (!isNaN(costPriceValue) && costPriceValue >= 0) {
+            updateData.cost_price = costPriceValue
+          }
+        }
+        
+        if (sellingPrice) {
+          const sellingPriceValue = parseFloat(sellingPrice)
+          if (!isNaN(sellingPriceValue) && sellingPriceValue >= 0) {
+            updateData.selling_price = sellingPriceValue
+          }
+        }
+        
+        if (Object.keys(updateData).length > 0) {
+          const { error: priceError } = await supabase
+            .from('items')
+            .update(updateData)
+            .eq('id', selectedItem)
+          
+          if (priceError) {
+            console.error('Failed to update item prices:', priceError)
+            // Don't throw - restocking can still succeed even if price update fails
+          }
+        }
+      }
+
       if (editingRestocking) {
         // Update existing restocking
         const { error } = await supabase
@@ -194,9 +236,12 @@ export default function RestockingForm() {
       }
 
       setQuantity('')
+      setCostPrice('')
+      setSellingPrice('')
       setNotes('')
       setSelectedItem('')
       setDate(format(new Date(), 'yyyy-MM-dd'))
+      fetchItems() // Refresh items to get updated prices
       fetchRestockings()
       fetchOpeningStockAndTotal()
     } catch (error: unknown) {
@@ -219,11 +264,19 @@ export default function RestockingForm() {
     setQuantity(restocking.quantity.toString())
     setDate(restocking.date) // Use the restocking's date (allows past dates for admins)
     setNotes(restocking.notes || '')
+    // Load current item prices when editing
+    const item = items.find(i => i.id === restocking.item_id)
+    if (item) {
+      setCostPrice(item.cost_price.toString())
+      setSellingPrice(item.selling_price.toString())
+    }
   }
 
   const handleCancelEdit = () => {
     setEditingRestocking(null)
     setQuantity('')
+    setCostPrice('')
+    setSellingPrice('')
     setNotes('')
     setSelectedItem('')
     setDate(format(new Date(), 'yyyy-MM-dd'))
@@ -334,6 +387,15 @@ export default function RestockingForm() {
               {currentTotal !== null && (
                 <p className="mt-1">Current Total (after restocks & sales): <span className="font-medium">{currentTotal.toFixed(2)}</span> {items.find(item => item.id === selectedItem)?.unit || ''}</p>
               )}
+              {selectedItem && (() => {
+                const item = items.find(i => i.id === selectedItem)
+                return item ? (
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p>Current Cost Price: <span className="font-medium">₦{item.cost_price.toFixed(2)}</span></p>
+                    <p className="mt-1">Current Selling Price: <span className="font-medium">₦{item.selling_price.toFixed(2)}</span></p>
+                  </div>
+                ) : null
+              })()}
             </div>
           )}
         </div>
@@ -354,6 +416,41 @@ export default function RestockingForm() {
             placeholder="0.00"
           />
           <p className="mt-1 text-xs text-gray-500">Enter the quantity to add to the opening stock</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">
+              Cost Price (₦) <span className="text-xs text-gray-500">(Optional - updates item price)</span>
+            </label>
+            <input
+              id="cost_price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
+              placeholder="0.00"
+            />
+            <p className="mt-1 text-xs text-gray-500">Leave empty to keep current price</p>
+          </div>
+          <div>
+            <label htmlFor="selling_price" className="block text-sm font-medium text-gray-700 mb-1">
+              Selling Price (₦) <span className="text-xs text-gray-500">(Optional - updates item price)</span>
+            </label>
+            <input
+              id="selling_price"
+              type="number"
+              step="0.01"
+              min="0"
+              value={sellingPrice}
+              onChange={(e) => setSellingPrice(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
+              placeholder="0.00"
+            />
+            <p className="mt-1 text-xs text-gray-500">Leave empty to keep current price</p>
+          </div>
         </div>
 
         <div>
