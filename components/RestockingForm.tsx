@@ -227,6 +227,21 @@ export default function RestockingForm() {
         }
       }
 
+      // Prepare price data for restocking record
+      const restockingPriceData: { cost_price?: number | null; selling_price?: number | null } = {}
+      if (costPrice) {
+        const costPriceValue = parseFloat(costPrice)
+        if (!isNaN(costPriceValue) && costPriceValue >= 0) {
+          restockingPriceData.cost_price = costPriceValue
+        }
+      }
+      if (sellingPrice) {
+        const sellingPriceValue = parseFloat(sellingPrice)
+        if (!isNaN(sellingPriceValue) && sellingPriceValue >= 0) {
+          restockingPriceData.selling_price = sellingPriceValue
+        }
+      }
+
       if (editingRestocking) {
         // Update existing restocking
         const { error } = await supabase
@@ -236,6 +251,7 @@ export default function RestockingForm() {
             quantity: quantityValue,
             date,
             notes: notes || null,
+            ...restockingPriceData,
           })
           .eq('id', editingRestocking.id)
 
@@ -250,6 +266,7 @@ export default function RestockingForm() {
           date,
           recorded_by: user.id,
           notes: notes || null,
+          ...restockingPriceData,
         })
 
         if (error) throw error
@@ -285,11 +302,18 @@ export default function RestockingForm() {
     setQuantity(restocking.quantity.toString())
     setDate(restocking.date) // Use the restocking's date (allows past dates for admins)
     setNotes(restocking.notes || '')
-    // Load current item prices when editing
-    const item = items.find(i => i.id === restocking.item_id)
-    if (item) {
-      setCostPrice(item.cost_price.toString())
-      setSellingPrice(item.selling_price.toString())
+    // Load prices from restocking record if available, otherwise from item
+    if (restocking.cost_price !== null && restocking.cost_price !== undefined) {
+      setCostPrice(restocking.cost_price.toString())
+    } else {
+      const item = items.find(i => i.id === restocking.item_id)
+      if (item) setCostPrice(item.cost_price.toString())
+    }
+    if (restocking.selling_price !== null && restocking.selling_price !== undefined) {
+      setSellingPrice(restocking.selling_price.toString())
+    } else {
+      const item = items.find(i => i.id === restocking.item_id)
+      if (item) setSellingPrice(item.selling_price.toString())
     }
   }
 
@@ -519,6 +543,8 @@ export default function RestockingForm() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity Added</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost Price (₦)</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Selling Price (₦)</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
                   {userRole === 'admin' && (
                     <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -536,6 +562,28 @@ export default function RestockingForm() {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       +{restocking.quantity} {restocking.item?.unit || ''}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {restocking.cost_price !== null && restocking.cost_price !== undefined 
+                        ? `₦${restocking.cost_price.toFixed(2)}` 
+                        : restocking.item?.cost_price 
+                          ? `₦${restocking.item.cost_price.toFixed(2)}` 
+                          : '-'}
+                      {restocking.cost_price !== null && restocking.cost_price !== undefined && restocking.item && 
+                       restocking.cost_price !== restocking.item.cost_price && (
+                        <span className="ml-1 text-xs text-green-600" title="Price updated during restocking">●</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {restocking.selling_price !== null && restocking.selling_price !== undefined 
+                        ? `₦${restocking.selling_price.toFixed(2)}` 
+                        : restocking.item?.selling_price 
+                          ? `₦${restocking.item.selling_price.toFixed(2)}` 
+                          : '-'}
+                      {restocking.selling_price !== null && restocking.selling_price !== undefined && restocking.item && 
+                       restocking.selling_price !== restocking.item.selling_price && (
+                        <span className="ml-1 text-xs text-green-600" title="Price updated during restocking">●</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                       {restocking.recorded_by_profile?.full_name || restocking.recorded_by_profile?.email || 'Unknown'}

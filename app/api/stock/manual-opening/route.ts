@@ -47,6 +47,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
+    // Update item prices if provided in opening stock
+    // Use the latest prices from opening stock records to update items table
+    for (const record of openingStockRecords) {
+      if (record.cost_price !== null && record.cost_price !== undefined) {
+        const { error: itemUpdateError } = await supabaseAdmin
+          .from('items')
+          .update({ cost_price: record.cost_price })
+          .eq('id', record.item_id)
+        
+        if (itemUpdateError) {
+          console.error(`Failed to update cost_price for item ${record.item_id}:`, itemUpdateError)
+        }
+      }
+      
+      if (record.selling_price !== null && record.selling_price !== undefined) {
+        const { error: itemUpdateError } = await supabaseAdmin
+          .from('items')
+          .update({ selling_price: record.selling_price })
+          .eq('id', record.item_id)
+        
+        if (itemUpdateError) {
+          console.error(`Failed to update selling_price for item ${record.item_id}:`, itemUpdateError)
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: `Opening stock saved for ${date}`,

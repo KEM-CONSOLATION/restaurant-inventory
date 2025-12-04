@@ -106,6 +106,8 @@ export interface Restocking {
   date: string
   recorded_by: string
   notes: string | null
+  cost_price: number | null
+  selling_price: number | null
   created_at: string
   item?: Item
   recorded_by_profile?: Profile

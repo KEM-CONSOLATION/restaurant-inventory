@@ -157,7 +157,7 @@ export default function SalesForm() {
   const [items, setItems] = useState<Item[]>([])
   const [sales, setSales] = useState<(Sale & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [openingStocks, setOpeningStocks] = useState<(OpeningStock & { item?: Item })[]>([])
-  const [restockings, setRestockings] = useState<Restocking[]>([])
+  const [restockings, setRestockings] = useState<(Restocking & { item?: Item })[]>([])
   const [selectedItem, setSelectedItem] = useState('')
   const [quantity, setQuantity] = useState('')
   const [pricePerUnit, setPricePerUnit] = useState('')
@@ -197,12 +197,46 @@ export default function SalesForm() {
       let price = 0
       
       if (isPastDate) {
-        // For past dates: use selling price from opening stock of that date
+        // For past dates: calculate consolidated price from opening stock + restocking
         const openingStock = openingStocks.find(os => os.item_id === selectedItem)
-        if (openingStock && openingStock.selling_price) {
+        const itemRestockings = restockings.filter(r => r.item_id === selectedItem)
+        
+        // Calculate weighted average price from opening stock and restocking
+        let totalQuantity = 0
+        let totalValue = 0
+        
+        // Add opening stock
+        if (openingStock) {
+          const openingQty = parseFloat(openingStock.quantity.toString())
+          const openingPrice = openingStock.selling_price || 0
+          if (openingQty > 0 && openingPrice > 0) {
+            totalQuantity += openingQty
+            totalValue += openingQty * openingPrice
+          }
+        }
+        
+        // Add restocking
+        itemRestockings.forEach(restocking => {
+          const restockingQty = parseFloat(restocking.quantity.toString())
+          const restockingPrice = restocking.selling_price || restocking.item?.selling_price || 0
+          if (restockingQty > 0 && restockingPrice > 0) {
+            totalQuantity += restockingQty
+            totalValue += restockingQty * restockingPrice
+          }
+        })
+        
+        // Calculate weighted average
+        if (totalQuantity > 0 && totalValue > 0) {
+          price = totalValue / totalQuantity
+        } else if (openingStock && openingStock.selling_price) {
+          // Fallback to opening stock price
           price = openingStock.selling_price
+        } else if (itemRestockings.length > 0) {
+          // Fallback to latest restocking price or item price
+          const latestRestocking = itemRestockings[itemRestockings.length - 1]
+          price = latestRestocking.selling_price || latestRestocking.item?.selling_price || 0
         } else {
-          // Fallback to item's current selling price
+          // Final fallback to item's current selling price
           const selectedItemData = items.find(item => item.id === selectedItem)
           price = selectedItemData?.selling_price || 0
         }
@@ -214,11 +248,11 @@ export default function SalesForm() {
       
       if (price > 0) {
         const qty = parseFloat(quantity) || 0
-        setPricePerUnit(price.toString())
+        setPricePerUnit(price.toFixed(2))
         setTotalPrice((qty * price).toFixed(2))
       }
     }
-  }, [selectedItem, quantity, items, isPastDate, openingStocks])
+  }, [selectedItem, quantity, items, isPastDate, openingStocks, restockings])
 
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -287,12 +321,15 @@ export default function SalesForm() {
     try {
       const { data, error } = await supabase
         .from('restocking')
-        .select('*')
+        .select(`
+          *,
+          item:items(*)
+        `)
         .eq('date', date)
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        setRestockings(data as Restocking[])
+        setRestockings(data as (Restocking & { item?: Item })[])
       }
     } catch {
       // Silently fail - restocking might not exist for all dates
