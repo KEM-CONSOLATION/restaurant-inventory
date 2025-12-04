@@ -30,7 +30,6 @@ export default function RestockingForm() {
     if (userRole === 'staff') {
       setDate(today)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRole])
 
   useEffect(() => {
@@ -108,7 +107,7 @@ export default function RestockingForm() {
 
       setOpeningStock(openingQty)
       setCurrentTotal(current)
-    } catch (error) {
+    } catch {
       // Fallback to 0 if calculation fails
       setOpeningStock(0)
       setCurrentTotal(0)
@@ -194,14 +193,36 @@ export default function RestockingForm() {
         }
         
         if (Object.keys(updateData).length > 0) {
-          const { error: priceError } = await supabase
+          // Update item prices
+          const { error: itemPriceError } = await supabase
             .from('items')
             .update(updateData)
             .eq('id', selectedItem)
           
-          if (priceError) {
-            console.error('Failed to update item prices:', priceError)
+          if (itemPriceError) {
+            console.error('Failed to update item prices:', itemPriceError)
             // Don't throw - restocking can still succeed even if price update fails
+          } else {
+            // Also update opening stock prices for this date if opening stock exists
+            const { data: existingOpeningStock } = await supabase
+              .from('opening_stock')
+              .select('id')
+              .eq('item_id', selectedItem)
+              .eq('date', date)
+              .single()
+            
+            if (existingOpeningStock) {
+              const { error: openingStockPriceError } = await supabase
+                .from('opening_stock')
+                .update(updateData)
+                .eq('item_id', selectedItem)
+                .eq('date', date)
+              
+              if (openingStockPriceError) {
+                console.error('Failed to update opening stock prices:', openingStockPriceError)
+                // Don't throw - restocking can still succeed even if opening stock price update fails
+              }
+            }
           }
         }
       }
