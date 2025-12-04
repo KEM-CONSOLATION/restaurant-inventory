@@ -21,9 +21,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate items array
-    const openingStockRecords = items.map((item: { item_id: string; quantity: number }) => ({
+    const openingStockRecords = items.map((item: { 
+      item_id: string
+      quantity: number
+      cost_price?: number | null
+      selling_price?: number | null
+    }) => ({
       item_id: item.item_id,
       quantity: item.quantity,
+      cost_price: item.cost_price ?? null,
+      selling_price: item.selling_price ?? null,
       date,
       recorded_by: user_id,
       notes: 'Manually entered opening stock',

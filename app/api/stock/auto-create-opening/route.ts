@@ -42,6 +42,12 @@ export async function POST(request: NextRequest) {
       .select('item_id, quantity')
       .eq('date', prevDateStr)
 
+    // Get previous day's opening stock to use prices if available
+    const { data: prevOpeningStock } = await supabaseAdmin
+      .from('opening_stock')
+      .select('item_id, cost_price, selling_price')
+      .eq('date', prevDateStr)
+
     // Check if opening stock already exists for this date
     const { data: existingOpeningStock } = await supabaseAdmin
       .from('opening_stock')
@@ -55,12 +61,20 @@ export async function POST(request: NextRequest) {
       .filter((item) => !existingItemIds.has(item.id)) // Only create if doesn't exist
       .map((item) => {
         const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
+        const prevOpening = prevOpeningStock?.find((os) => os.item_id === item.id)
+        
         // Use previous day's closing stock if exists, otherwise use item quantity
         const openingStock = prevClosing ? parseFloat(prevClosing.quantity.toString()) : item.quantity
+        
+        // Use previous day's prices if available, otherwise use item's current prices
+        const costPrice = prevOpening?.cost_price ?? item.cost_price
+        const sellingPrice = prevOpening?.selling_price ?? item.selling_price
 
         return {
           item_id: item.id,
           quantity: openingStock,
+          cost_price: costPrice,
+          selling_price: sellingPrice,
           date,
           recorded_by: user_id,
           notes: prevClosing

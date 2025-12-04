@@ -11,12 +11,20 @@ interface StockReportItem {
   current_quantity: number
   opening_stock: number
   opening_stock_source?: 'previous_closing_stock' | 'item_quantity' | 'manual_entry'
+  opening_stock_cost_price?: number | null
+  opening_stock_selling_price?: number | null
   restocking?: number
   sales: number
   waste_spoilage?: number
   closing_stock: number
   opening_stock_manual?: boolean
   closing_stock_manual?: boolean
+}
+
+interface EditingItemData {
+  quantity?: number
+  cost_price?: number
+  selling_price?: number
 }
 
 interface StockReport {
@@ -30,7 +38,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
   const [report, setReport] = useState<StockReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [editingItems, setEditingItems] = useState<Record<string, number>>({})
+  const [editingItems, setEditingItems] = useState<Record<string, EditingItemData>>({})
   const [currentTime, setCurrentTime] = useState(new Date())
   const isPastDate = selectedDate < today
 
@@ -42,6 +50,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
   useEffect(() => {
     fetchReport()
     setEditingItems({}) // Reset editing state when date changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate])
 
   const fetchReport = async () => {
@@ -154,10 +163,30 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         return
       }
 
-      const itemsToSave = report.report.map((item) => ({
-        item_id: item.item_id,
-        quantity: editingItems[item.item_id] ?? (type === 'opening' ? item.opening_stock : item.closing_stock),
-      }))
+      const itemsToSave = report.report.map((item) => {
+        const editingData = editingItems[item.item_id] || {}
+        const baseData: any = {
+          item_id: item.item_id,
+          quantity: editingData.quantity ?? (type === 'opening' ? item.opening_stock : item.closing_stock),
+        }
+        
+        // Only include prices for opening stock
+        if (type === 'opening') {
+          if (editingData.cost_price !== undefined) {
+            baseData.cost_price = editingData.cost_price
+          } else if (item.opening_stock_cost_price !== undefined) {
+            baseData.cost_price = item.opening_stock_cost_price
+          }
+          
+          if (editingData.selling_price !== undefined) {
+            baseData.selling_price = editingData.selling_price
+          } else if (item.opening_stock_selling_price !== undefined) {
+            baseData.selling_price = item.opening_stock_selling_price
+          }
+        }
+        
+        return baseData
+      })
 
       const endpoint = type === 'opening' ? '/api/stock/manual-opening' : '/api/stock/manual-closing'
       const response = await fetch(endpoint, {
@@ -186,10 +215,23 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
     }
   }
 
-  const handleValueChange = (itemId: string, value: string) => {
+  const handleValueChange = (itemId: string, field: 'quantity' | 'cost_price' | 'selling_price', value: string) => {
     const numValue = parseFloat(value)
     if (!isNaN(numValue) && numValue >= 0) {
-      setEditingItems((prev) => ({ ...prev, [itemId]: numValue }))
+      setEditingItems((prev) => ({
+        ...prev,
+        [itemId]: {
+          ...prev[itemId],
+          [field]: numValue,
+        },
+      }))
+    } else if (value === '') {
+      // Allow clearing the value
+      setEditingItems((prev) => {
+        const updated = { ...prev[itemId] }
+        delete updated[field]
+        return { ...prev, [itemId]: updated }
+      })
     }
   }
 
@@ -253,7 +295,8 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
                 <p className="text-sm text-blue-800">
                   <strong>Past Date Entry:</strong> You can manually enter {type === 'opening' ? 'opening' : 'closing'} stock values for this date. 
-                  {type === 'closing' && ' The system will calculate based on opening stock + restocking - sales, but you can override with manual values.'}
+                  {type === 'opening' && ' You can also enter cost price and selling price for historical accuracy, as prices change per day.'}
+                  {type === 'closing' && ' The system will calculate based on opening stock + restocking - sales - waste/spoilage, but you can override with manual values.'}
                 </p>
               </div>
             )}
@@ -278,6 +321,16 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Opening Stock
                       </th>
+                      {isPastDate && (
+                        <>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Cost Price (₦)
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Selling Price (₦)
+                          </th>
+                        </>
+                      )}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Current Quantity
                       </th>
@@ -319,8 +372,8 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={editingItems[item.item_id] ?? item.opening_stock}
-                                onChange={(e) => handleValueChange(item.item_id, e.target.value)}
+                                value={editingItems[item.item_id]?.quantity ?? item.opening_stock}
+                                onChange={(e) => handleValueChange(item.item_id, 'quantity', e.target.value)}
                                 className="w-24 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
                               />
                               <span className="text-gray-500">{item.item_unit}</span>
@@ -341,6 +394,40 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                             </>
                           )}
                         </td>
+                        {isPastDate && (
+                          <>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={
+                                  editingItems[item.item_id]?.cost_price !== undefined
+                                    ? editingItems[item.item_id].cost_price
+                                    : item.opening_stock_cost_price ?? ''
+                                }
+                                onChange={(e) => handleValueChange(item.item_id, 'cost_price', e.target.value)}
+                                placeholder="0.00"
+                                className="w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                              />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={
+                                  editingItems[item.item_id]?.selling_price !== undefined
+                                    ? editingItems[item.item_id].selling_price
+                                    : item.opening_stock_selling_price ?? ''
+                                }
+                                onChange={(e) => handleValueChange(item.item_id, 'selling_price', e.target.value)}
+                                placeholder="0.00"
+                                className="w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                              />
+                            </td>
+                          </>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.current_quantity} {item.item_unit}
                         </td>

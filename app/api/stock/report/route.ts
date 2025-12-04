@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // Get existing opening stock for this date (if manually entered)
     const { data: existingOpeningStock } = await supabaseAdmin
       .from('opening_stock')
-      .select('item_id, quantity')
+      .select('item_id, quantity, cost_price, selling_price')
       .eq('date', date)
 
     // Get existing closing stock for this date (if manually entered)
@@ -113,6 +113,8 @@ export async function GET(request: NextRequest) {
           : prevClosing
           ? 'previous_closing_stock'
           : 'item_quantity',
+        opening_stock_cost_price: existingOpening?.cost_price ?? null,
+        opening_stock_selling_price: existingOpening?.selling_price ?? null,
         restocking: totalRestocking,
         sales: totalSales,
         waste_spoilage: totalWasteSpoilage,
