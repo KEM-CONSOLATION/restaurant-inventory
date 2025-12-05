@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { sale_id, item_id, quantity, price_per_unit, total_price, payment_mode, date, description, old_quantity } = body
+    const { sale_id, item_id, quantity, price_per_unit, total_price, payment_mode, date, description, old_quantity, user_id } = body
 
     if (!sale_id || !item_id || !quantity || !date || old_quantity === undefined || !user_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

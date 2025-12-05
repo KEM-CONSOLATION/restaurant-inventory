@@ -197,10 +197,10 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
     }
   }
 
-  const ensureOpeningStockMatchesPreviousClosing = async (date: string): Promise<{ success: boolean; updated?: number; error?: any }> => {
+  const ensureOpeningStockMatchesPreviousClosing = async (date: string): Promise<{ success: boolean; updated?: number; error?: Error }> => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return { success: false, error: 'User not found' }
+      if (!user) return { success: false, error: new Error('User not found') }
 
       // Calculate previous date
       const dateObj = new Date(date + 'T00:00:00')
@@ -237,7 +237,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         .select('*')
         .order('name')
 
-      if (!items) return { success: false, error: 'Items not found' }
+      if (!items) return { success: false, error: new Error('Items not found') }
 
       // Update opening stock to match previous day's closing stock
       const openingStockToUpsert = items
@@ -297,7 +297,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       return { success: true, updated: 0 }
     } catch (error) {
       console.error('Failed to ensure opening stock matches previous closing:', error)
-      return { success: false, error }
+      return { success: false, error: error instanceof Error ? error : new Error(String(error)) }
     }
   }
 
@@ -344,7 +344,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       const result = await ensureOpeningStockMatchesPreviousClosing(selectedDate)
       
       if (result.success) {
-        if (result.updated > 0) {
+        if (result.updated && result.updated > 0) {
           alert(`Successfully recalculated!\n\nPrevious day (${prevDateStr}) closing stock recalculated.\n${result.updated} item(s) updated to match previous day's closing stock.`)
           // Refresh the report to show updated values
           await fetchReport()
