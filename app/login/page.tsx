@@ -21,6 +21,7 @@ function LoginForm() {
     } else if (errorParam === 'inactivity' && !error) {
       setError('You were logged out due to inactivity. Please sign in again.')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errorParam])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -78,7 +79,23 @@ function LoginForm() {
       
       window.location.replace(redirectPath)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred'
+      let errorMessage = 'An error occurred'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Provide more helpful error messages
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again. If the problem persists, the Supabase service may be temporarily unavailable.'
+        } else if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please try again.'
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please confirm your email address before signing in.'
+        } else if (error.message.includes('Supabase is not configured')) {
+          errorMessage = 'Application configuration error. Please contact support.'
+        }
+      }
+      
       setError(errorMessage)
       setLoading(false)
     }
