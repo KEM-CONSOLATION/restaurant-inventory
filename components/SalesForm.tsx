@@ -299,19 +299,57 @@ export default function SalesForm() {
 
   const fetchOpeningStock = async () => {
     try {
+      // Ensure date is in YYYY-MM-DD format
+      const dateStr = date.split('T')[0] // Remove time if present
+      
       const { data, error } = await supabase
         .from('opening_stock')
         .select(`
           *,
           item:items(*)
         `)
-        .eq('date', date)
+        .eq('date', dateStr)
         .order('created_at', { ascending: false })
 
-      if (!error && data) {
-        setOpeningStocks(data as (OpeningStock & { item?: Item })[])
+      if (error) {
+        console.error('Error fetching opening stock:', error)
+        setOpeningStocks([])
+        return
       }
-    } catch {
+
+      if (data && data.length > 0) {
+        // Filter out any duplicates (shouldn't happen due to UNIQUE constraint, but just in case)
+        const uniqueOpeningStocks = data.reduce((acc, current) => {
+          const existing = acc.find(item => item.item_id === current.item_id)
+          if (!existing) {
+            acc.push(current)
+          } else {
+            // If duplicate, keep the one with the most recent created_at
+            if (new Date(current.created_at) > new Date(existing.created_at)) {
+              const index = acc.indexOf(existing)
+              acc[index] = current
+            }
+          }
+          return acc
+        }, [] as typeof data)
+        
+        // Debug: Log opening stock for water specifically
+        const waterStock = uniqueOpeningStocks.find(os => os.item?.name?.toLowerCase() === 'water')
+        if (waterStock) {
+          console.log(`Water opening stock for ${dateStr}:`, {
+            quantity: waterStock.quantity,
+            date: waterStock.date,
+            itemQuantity: waterStock.item?.quantity
+          })
+        }
+        
+        setOpeningStocks(uniqueOpeningStocks as (OpeningStock & { item?: Item })[])
+      } else {
+        console.log(`No opening stock found for date: ${dateStr}`)
+        setOpeningStocks([])
+      }
+    } catch (error) {
+      console.error('Error in fetchOpeningStock:', error)
       // Silently fail - opening stock might not exist for all dates
       setOpeningStocks([])
     }
@@ -689,7 +727,7 @@ export default function SalesForm() {
         <div>
           <label htmlFor="item" className="block text-sm font-medium text-gray-700 mb-1">
             Item Used
-            {isPastDate && <span className="text-xs text-gray-500 ml-1">(From opening stock + restocking)</span>}
+            {isPastDate && <span className="text-xs text-gray-500 ml-1">(From opening stock of this date, derived from previous day's closing stock)</span>}
           </label>
           <select
             id="item"
@@ -718,12 +756,24 @@ export default function SalesForm() {
                 }, 0)
                 
                 // Available = Opening Stock + Restocking - Sales already made
+                // Ensure we're using the opening stock quantity from the database, not the item's current quantity
                 const openingQty = parseFloat(openingStock.quantity.toString())
+                
+                // Double-check: if opening stock quantity doesn't match, log for debugging
+                if (item.quantity !== openingQty && item.quantity > 0) {
+                  console.log(`Opening stock mismatch for ${item.name} on ${date}: Opening Stock=${openingQty}, Item Quantity=${item.quantity}`)
+                }
+                
                 const available = openingQty + totalRestocking - totalSales
+                
+                // Format display to show opening stock clearly (from previous day's closing stock)
+                const displayText = totalRestocking > 0
+                  ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
+                  : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
                 
                 return (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({item.unit}) - Available: {available > 0 ? available : 0} (Opening: {openingQty}{totalRestocking > 0 ? `, Restocked: ${totalRestocking}` : ''})
+                    {displayText}
                   </option>
                 )
               })

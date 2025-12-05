@@ -204,23 +204,50 @@ export default function RestockingForm() {
             // Don't throw - restocking can still succeed even if price update fails
           } else {
             // Also update opening stock prices for this date if opening stock exists
+            // Calculate weighted average price: (Opening Stock Qty × Opening Price + Restocking Qty × Restocking Price) / Total Qty
             const { data: existingOpeningStock } = await supabase
               .from('opening_stock')
-              .select('id')
+              .select('quantity, cost_price, selling_price')
               .eq('item_id', selectedItem)
               .eq('date', date)
               .single()
             
             if (existingOpeningStock) {
-              const { error: openingStockPriceError } = await supabase
-                .from('opening_stock')
-                .update(updateData)
-                .eq('item_id', selectedItem)
-                .eq('date', date)
+              // Calculate weighted average prices
+              const openingQty = parseFloat(existingOpeningStock.quantity.toString())
+              const restockingQty = parseFloat(quantity)
+              const totalQty = openingQty + restockingQty
               
-              if (openingStockPriceError) {
-                console.error('Failed to update opening stock prices:', openingStockPriceError)
-                // Don't throw - restocking can still succeed even if opening stock price update fails
+              const weightedPriceUpdate: { cost_price?: number; selling_price?: number } = {}
+              
+              if (costPrice && totalQty > 0) {
+                const costPriceValue = parseFloat(costPrice)
+                const openingCostPrice = existingOpeningStock.cost_price || 0
+                // Weighted average: (Opening Qty × Opening Price + Restocking Qty × Restocking Price) / Total Qty
+                const weightedCostPrice = (openingQty * openingCostPrice + restockingQty * costPriceValue) / totalQty
+                weightedPriceUpdate.cost_price = weightedCostPrice
+              }
+              
+              if (sellingPrice && totalQty > 0) {
+                const sellingPriceValue = parseFloat(sellingPrice)
+                const openingSellingPrice = existingOpeningStock.selling_price || 0
+                // Weighted average: (Opening Qty × Opening Price + Restocking Qty × Restocking Price) / Total Qty
+                const weightedSellingPrice = (openingQty * openingSellingPrice + restockingQty * sellingPriceValue) / totalQty
+                weightedPriceUpdate.selling_price = weightedSellingPrice
+              }
+              
+              // Only update if we calculated weighted averages
+              if (Object.keys(weightedPriceUpdate).length > 0) {
+                const { error: openingStockPriceError } = await supabase
+                  .from('opening_stock')
+                  .update(weightedPriceUpdate)
+                  .eq('item_id', selectedItem)
+                  .eq('date', date)
+                
+                if (openingStockPriceError) {
+                  console.error('Failed to update opening stock prices:', openingStockPriceError)
+                  // Don't throw - restocking can still succeed even if opening stock price update fails
+                }
               }
             }
           }

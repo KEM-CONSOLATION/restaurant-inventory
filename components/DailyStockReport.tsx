@@ -130,8 +130,24 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         } else if (isPastDate && type === 'closing') {
           // For past dates closing stock: Also ensure opening stock for next day matches this closing stock
           // This maintains the chain: this closing stock → next day's opening stock
+          if (!selectedDate || !selectedDate.trim()) {
+            console.error('Invalid selectedDate for next date calculation')
+            return
+          }
+          
           const nextDate = new Date(selectedDate + 'T00:00:00')
+          if (isNaN(nextDate.getTime())) {
+            console.error('Invalid date format for next date calculation')
+            return
+          }
+          
           nextDate.setDate(nextDate.getDate() + 1)
+          
+          if (isNaN(nextDate.getTime())) {
+            console.error('Invalid next date calculated')
+            return
+          }
+          
           const nextDateStr = nextDate.toISOString().split('T')[0]
           const today = format(new Date(), 'yyyy-MM-dd')
           if (nextDateStr <= today) {
@@ -202,10 +218,24 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return { success: false, error: new Error('User not found') }
 
-      // Calculate previous date
+      // Validate and calculate previous date
+      if (!date || !date.trim()) {
+        return { success: false, error: new Error('Invalid date provided') }
+      }
+
       const dateObj = new Date(date + 'T00:00:00')
+      if (isNaN(dateObj.getTime())) {
+        return { success: false, error: new Error('Invalid date format') }
+      }
+
       const prevDate = new Date(dateObj)
       prevDate.setDate(prevDate.getDate() - 1)
+      
+      // Validate the previous date is still valid
+      if (isNaN(prevDate.getTime())) {
+        return { success: false, error: new Error('Invalid previous date calculated') }
+      }
+
       const prevDateStr = prevDate.toISOString().split('T')[0]
 
       // Get previous day's closing stock
@@ -316,10 +346,29 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         return
       }
 
-      // Calculate previous date
+      // Validate and calculate previous date
+      if (!selectedDate || !selectedDate.trim()) {
+        alert('Invalid date selected. Please select a valid date.')
+        setCalculating(false)
+        return
+      }
+
       const dateObj = new Date(selectedDate + 'T00:00:00')
+      if (isNaN(dateObj.getTime())) {
+        alert('Invalid date format. Please select a valid date.')
+        setCalculating(false)
+        return
+      }
+
       const prevDate = new Date(dateObj)
       prevDate.setDate(prevDate.getDate() - 1)
+      
+      if (isNaN(prevDate.getTime())) {
+        alert('Error calculating previous date. Please try again.')
+        setCalculating(false)
+        return
+      }
+
       const prevDateStr = prevDate.toISOString().split('T')[0]
 
       // Step 1: First, recalculate the previous day's closing stock
