@@ -37,11 +37,26 @@ export async function recalculateClosingStock(
 
     if (!items) return
 
-    // Calculate previous date
-    const dateObj = new Date(date + 'T00:00:00')
-    const prevDate = new Date(dateObj)
-    prevDate.setDate(prevDate.getDate() - 1)
-    const prevDateStr = prevDate.toISOString().split('T')[0]
+    // Calculate previous date using local time to avoid timezone issues
+    const dateStr = date.split('T')[0] // Ensure YYYY-MM-DD format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new Error('Invalid date format. Expected YYYY-MM-DD')
+    }
+    
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const dateObj = new Date(year, month - 1, day) // month is 0-indexed, use local time
+    if (isNaN(dateObj.getTime())) {
+      throw new Error('Invalid date')
+    }
+    
+    // Subtract one day
+    dateObj.setDate(dateObj.getDate() - 1)
+    
+    // Format back to YYYY-MM-DD without timezone conversion
+    const prevYear = dateObj.getFullYear()
+    const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const prevDay = String(dateObj.getDate()).padStart(2, '0')
+    const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
 
     // Get previous day's closing stock
     const { data: prevClosingStock } = await supabaseAdmin
@@ -147,17 +162,36 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
       persistSession: false,
     },
   })
-  let currentDate = new Date(start_date + 'T00:00:00')
+  // Parse start_date using local time to avoid timezone issues
+  const startDateStr = start_date.split('T')[0] // Ensure YYYY-MM-DD format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr)) {
+    throw new Error('Invalid start_date format. Expected YYYY-MM-DD')
+  }
+  
+  const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number)
+  let currentDate = new Date(startYear, startMonth - 1, startDay) // month is 0-indexed, use local time
+  if (isNaN(currentDate.getTime())) {
+    throw new Error('Invalid start_date')
+  }
+  
   const updates: string[] = []
 
+  // Format date to YYYY-MM-DD for comparison (using local time)
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Cascade updates from start_date forward until today
-  while (currentDate.toISOString().split('T')[0] < today) {
-    const currentDateStr = currentDate.toISOString().split('T')[0]
+  while (formatDateLocal(currentDate) < today) {
+    const currentDateStr = formatDateLocal(currentDate)
     
     // Calculate next date
     const nextDate = new Date(currentDate)
     nextDate.setDate(nextDate.getDate() + 1)
-    const nextDateStr = nextDate.toISOString().split('T')[0]
+    const nextDateStr = formatDateLocal(nextDate)
 
     // Get closing stock for current date
     const { data: closingStock } = await supabaseAdmin
@@ -183,7 +217,7 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
       .select('item_id, quantity')
       .eq('date', nextDateStr)
 
-    const existingItemIds = new Set(existingNextOpeningStock?.map((os) => os.item_id) || [])
+    // Note: existingNextOpeningStock is used to check if opening stock exists, but we always update regardless
 
     // Get all items
     const { data: items } = await supabaseAdmin

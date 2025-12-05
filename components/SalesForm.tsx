@@ -454,19 +454,54 @@ export default function SalesForm() {
 
   const fetchRestocking = async () => {
     try {
+      // Ensure date is in YYYY-MM-DD format
+      let dateStr = date
+      if (date.includes('T')) {
+        dateStr = date.split('T')[0] // Remove time if present
+      } else if (date.includes('/')) {
+        // Handle DD/MM/YYYY or MM/DD/YYYY format
+        const parts = date.split('/')
+        if (parts.length === 3) {
+          // Assume DD/MM/YYYY format (common in some locales)
+          dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`
+        }
+      }
+      
+      // Final validation: ensure dateStr is in YYYY-MM-DD format
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        console.error(`Invalid date format for restocking fetch: ${dateStr} (original: ${date})`)
+        setRestockings([])
+        return
+      }
+      
+      console.log(`Fetching restocking for date: ${dateStr} (original: ${date})`)
+      
       const { data, error } = await supabase
         .from('restocking')
         .select(`
           *,
           item:items(*)
         `)
-        .eq('date', date)
+        .eq('date', dateStr) // Use normalized date
         .order('created_at', { ascending: false })
 
       if (!error && data) {
+        console.log(`Restocking query result for ${dateStr}:`, {
+          dataLength: data?.length || 0,
+          data: data?.map(r => ({ 
+            item_id: r.item_id, 
+            item_name: r.item?.name, 
+            quantity: r.quantity, 
+            date: r.date 
+          }))
+        })
         setRestockings(data as (Restocking & { item?: Item })[])
+      } else if (error) {
+        console.error('Error fetching restocking:', error)
+        setRestockings([])
       }
-    } catch {
+    } catch (error) {
+      console.error('Error in fetchRestocking:', error)
       // Silently fail - restocking might not exist for all dates
       setRestockings([])
     }
@@ -544,24 +579,35 @@ export default function SalesForm() {
         
         if (isPastDate) {
           // For past dates: Opening Stock + Restocking - Sales already recorded
+          // Normalize date to YYYY-MM-DD format
+          const normalizedDate = date.split('T')[0]
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+            setMessage({ 
+              type: 'error', 
+              text: `Invalid date format: ${date}. Please select a valid date.` 
+            })
+            setLoading(false)
+            return
+          }
+          
           const { data: openingStock } = await supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', selectedItem)
-            .eq('date', date)
+            .eq('date', normalizedDate) // Use normalized date
             .single()
 
           const { data: restocking } = await supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', selectedItem)
-            .eq('date', date)
+            .eq('date', normalizedDate) // Use normalized date
 
           const { data: existingSales } = await supabase
             .from('sales')
             .select('id, quantity')
             .eq('item_id', selectedItem)
-            .eq('date', date)
+            .eq('date', normalizedDate) // Use normalized date
 
           const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
           const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
@@ -835,45 +881,60 @@ export default function SalesForm() {
           >
             <option value="">Select an item</option>
             {isPastDate ? (
-              // For past dates: show items from opening stock + restocking
-              openingStocks.map((openingStock) => {
-                const item = openingStock.item
-                if (!item) return null
-                
-                // Get restocking for this item
-                const itemRestocking = restockings.filter(r => r.item_id === item.id)
-                const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
-                
-                // Get sales already recorded for this item
-                const itemSales = sales.filter(s => s.item_id === item.id)
-                const totalSales = itemSales.reduce((sum, s) => {
-                  // Exclude the sale being edited from total
-                  if (editingSale && s.id === editingSale.id) return sum
-                  return sum + s.quantity
-                }, 0)
-                
-                // Available = Opening Stock + Restocking - Sales already made
-                // Ensure we're using the opening stock quantity from the database, not the item's current quantity
-                const openingQty = parseFloat(openingStock.quantity.toString())
-                
-                // Double-check: if opening stock quantity doesn't match, log for debugging
-                if (item.quantity !== openingQty && item.quantity > 0) {
-                  console.log(`Opening stock mismatch for ${item.name} on ${date}: Opening Stock=${openingQty}, Item Quantity=${item.quantity}`)
-                }
-                
-                const available = openingQty + totalRestocking - totalSales
-                
-                // Format display to show opening stock clearly (from previous day's closing stock)
-                const displayText = totalRestocking > 0
-                  ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
-                  : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
-                
-                return (
-                  <option key={item.id} value={item.id}>
-                    {displayText}
-                  </option>
-                )
-              })
+              // For past dates: show items ONLY from opening stock for this specific date
+              openingStocks.length > 0 ? (
+                openingStocks.map((openingStock) => {
+                  const item = openingStock.item
+                  if (!item) return null
+                  
+                  // Normalize date to ensure correct filtering
+                  const normalizedDate = date.split('T')[0]
+                  
+                  // Get restocking for this item on this specific date only
+                  const itemRestocking = restockings.filter(r => {
+                    const restockDate = r.date.split('T')[0]
+                    return r.item_id === item.id && restockDate === normalizedDate
+                  })
+                  const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+                  
+                  // Get sales already recorded for this item on this specific date only
+                  const itemSales = sales.filter(s => {
+                    const saleDate = s.date.split('T')[0]
+                    return s.item_id === item.id && saleDate === normalizedDate
+                  })
+                  const totalSales = itemSales.reduce((sum, s) => {
+                    // Exclude the sale being edited from total
+                    if (editingSale && s.id === editingSale.id) return sum
+                    return sum + s.quantity
+                  }, 0)
+                  
+                  // Available = Opening Stock + Restocking - Sales already made
+                  // CRITICAL: Use opening stock quantity from the database for this specific date
+                  const openingQty = parseFloat(openingStock.quantity.toString())
+                  
+                  // Double-check: if opening stock quantity doesn't match item quantity, log for debugging
+                  if (item.quantity !== openingQty && item.quantity > 0) {
+                    console.log(`[SalesForm] Opening stock mismatch for ${item.name} on ${normalizedDate}: Opening Stock=${openingQty}, Item Current Quantity=${item.quantity}`)
+                  }
+                  
+                  const available = Math.max(0, openingQty + totalRestocking - totalSales)
+                  
+                  // Format display to show opening stock clearly (from previous day's closing stock)
+                  const displayText = totalRestocking > 0
+                    ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
+                    : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
+                  
+                  return (
+                    <option key={item.id} value={item.id}>
+                      {displayText}
+                    </option>
+                  )
+                })
+              ) : (
+                <option value="" disabled>
+                  No opening stock found for this date. Please record opening stock first.
+                </option>
+              )
             ) : (
               // For today: show all items with current quantity
               items.map((item) => {

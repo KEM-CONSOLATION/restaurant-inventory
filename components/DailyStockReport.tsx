@@ -135,7 +135,16 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
             return
           }
           
-          const nextDate = new Date(selectedDate + 'T00:00:00')
+          // Ensure date is in YYYY-MM-DD format
+          const dateStr = selectedDate.split('T')[0]
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            console.error('Invalid date format for next date calculation')
+            return
+          }
+          
+          // Calculate next date using string manipulation to avoid timezone issues
+          const [year, month, day] = dateStr.split('-').map(Number)
+          const nextDate = new Date(year, month - 1, day) // month is 0-indexed, use local time
           if (isNaN(nextDate.getTime())) {
             console.error('Invalid date format for next date calculation')
             return
@@ -143,12 +152,13 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
           
           nextDate.setDate(nextDate.getDate() + 1)
           
-          if (isNaN(nextDate.getTime())) {
-            console.error('Invalid next date calculated')
-            return
-          }
+          // Format back to YYYY-MM-DD without timezone conversion
+          const nextYear = nextDate.getFullYear()
+          const nextMonth = String(nextDate.getMonth() + 1).padStart(2, '0')
+          const nextDay = String(nextDate.getDate()).padStart(2, '0')
+          const nextDateStr = `${nextYear}-${nextMonth}-${nextDay}`
           
-          const nextDateStr = nextDate.toISOString().split('T')[0]
+          console.log(`[fetchReport - closing stock] Date: ${dateStr}, Next date: ${nextDateStr}`)
           const today = format(new Date(), 'yyyy-MM-dd')
           if (nextDateStr <= today) {
             // Use cascade update to ensure next day's opening stock matches this closing stock
@@ -223,20 +233,29 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         return { success: false, error: new Error('Invalid date provided') }
       }
 
-      const dateObj = new Date(date + 'T00:00:00')
+      // Ensure date is in YYYY-MM-DD format
+      const dateStr = date.split('T')[0]
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return { success: false, error: new Error('Invalid date format. Expected YYYY-MM-DD') }
+      }
+
+      // Calculate previous date using string manipulation to avoid timezone issues
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const dateObj = new Date(year, month - 1, day) // month is 0-indexed
       if (isNaN(dateObj.getTime())) {
         return { success: false, error: new Error('Invalid date format') }
       }
 
-      const prevDate = new Date(dateObj)
-      prevDate.setDate(prevDate.getDate() - 1)
+      // Subtract one day
+      dateObj.setDate(dateObj.getDate() - 1)
       
-      // Validate the previous date is still valid
-      if (isNaN(prevDate.getTime())) {
-        return { success: false, error: new Error('Invalid previous date calculated') }
-      }
-
-      const prevDateStr = prevDate.toISOString().split('T')[0]
+      // Format back to YYYY-MM-DD without timezone conversion
+      const prevYear = dateObj.getFullYear()
+      const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const prevDay = String(dateObj.getDate()).padStart(2, '0')
+      const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
+      
+      console.log(`[ensureOpeningStockMatchesPreviousClosing] Date: ${dateStr}, Previous date: ${prevDateStr}`)
 
       // Get previous day's closing stock
       const { data: prevClosingStock } = await supabase
@@ -249,11 +268,11 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         return { success: true, updated: 0 }
       }
 
-      // Get current opening stock for this date
+      // Get current opening stock for this date (use dateStr already defined above)
       const { data: currentOpeningStock } = await supabase
         .from('opening_stock')
         .select('item_id, quantity, cost_price, selling_price')
-        .eq('date', date)
+        .eq('date', dateStr)
 
       // Get previous day's opening stock for prices
       const { data: prevOpeningStock } = await supabase
@@ -353,23 +372,33 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         return
       }
 
-      const dateObj = new Date(selectedDate + 'T00:00:00')
+      // Ensure date is in YYYY-MM-DD format
+      const dateStr = selectedDate.split('T')[0]
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        alert('Invalid date format. Expected YYYY-MM-DD')
+        setCalculating(false)
+        return
+      }
+
+      // Calculate previous date using string manipulation to avoid timezone issues
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const dateObj = new Date(year, month - 1, day) // month is 0-indexed, use local time
       if (isNaN(dateObj.getTime())) {
-        alert('Invalid date format. Please select a valid date.')
+        alert('Invalid date format. Please try again.')
         setCalculating(false)
         return
       }
 
-      const prevDate = new Date(dateObj)
-      prevDate.setDate(prevDate.getDate() - 1)
+      // Subtract one day
+      dateObj.setDate(dateObj.getDate() - 1)
       
-      if (isNaN(prevDate.getTime())) {
-        alert('Error calculating previous date. Please try again.')
-        setCalculating(false)
-        return
-      }
-
-      const prevDateStr = prevDate.toISOString().split('T')[0]
+      // Format back to YYYY-MM-DD without timezone conversion
+      const prevYear = dateObj.getFullYear()
+      const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const prevDay = String(dateObj.getDate()).padStart(2, '0')
+      const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
+      
+      console.log(`[handleRecalculateOpeningStock] Date: ${dateStr}, Previous date: ${prevDateStr}`)
 
       // Step 1: First, recalculate the previous day's closing stock
       // This ensures we have the correct closing stock based on all transactions

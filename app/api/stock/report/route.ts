@@ -33,10 +33,26 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate previous date - ensure we're working with date strings in YYYY-MM-DD format
-    const dateObj = new Date(date + 'T00:00:00') // Add time to avoid timezone issues
-    const prevDate = new Date(dateObj)
-    prevDate.setDate(prevDate.getDate() - 1)
-    const prevDateStr = prevDate.toISOString().split('T')[0]
+    // Use local date calculation to avoid timezone issues
+    const dateStr = date.split('T')[0] // Ensure YYYY-MM-DD format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return NextResponse.json({ error: 'Invalid date format. Expected YYYY-MM-DD' }, { status: 400 })
+    }
+    
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const dateObj = new Date(year, month - 1, day) // month is 0-indexed, use local time
+    if (isNaN(dateObj.getTime())) {
+      return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
+    }
+    
+    // Subtract one day
+    dateObj.setDate(dateObj.getDate() - 1)
+    
+    // Format back to YYYY-MM-DD without timezone conversion
+    const prevYear = dateObj.getFullYear()
+    const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const prevDay = String(dateObj.getDate()).padStart(2, '0')
+    const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
 
     // Get existing opening stock for this date (if manually entered)
     const { data: existingOpeningStock } = await supabaseAdmin

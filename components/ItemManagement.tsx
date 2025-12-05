@@ -59,9 +59,8 @@ export default function ItemManagement() {
             name: capitalizedName,
             unit: formData.unit,
             // Don't update quantity when editing - it's managed through opening stock and restocking
+            // Don't update prices when editing - they're managed through opening stock and restocking
             low_stock_threshold: parseInt(formData.low_stock_threshold, 10) || 10,
-            cost_price: parseFloat(formData.cost_price) || 0,
-            selling_price: parseFloat(formData.selling_price) || 0,
             description: formData.description || null,
           })
           .eq('id', editingItem.id)
@@ -102,8 +101,8 @@ export default function ItemManagement() {
       unit: item.unit,
       quantity: '', // Don't show quantity when editing
       low_stock_threshold: (item.low_stock_threshold || 10).toString(),
-      cost_price: item.cost_price?.toString(),
-      selling_price: item.selling_price?.toString(),
+      cost_price: '', // Don't show prices when editing - they're managed through opening stock and restocking
+      selling_price: '', // Don't show prices when editing - they're managed through opening stock and restocking
       description: item.description || '',
     })
     setShowForm(true)
@@ -265,53 +264,65 @@ export default function ItemManagement() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                   placeholder="0"
                 />
-                <p className="mt-1 text-xs text-gray-500">Note: To update quantities, use the Restocking feature instead of editing items directly.</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  <strong>Note:</strong> This is only used as an initial value. Actual stock quantities are managed through 
+                  <strong> Opening Stock</strong> and <strong>Restocking</strong> features. The quantity field is not displayed 
+                  in the items table to avoid confusion with the opening/closing stock system.
+                </p>
               </div>
             )}
             {editingItem && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Item quantities are managed through Opening Stock and Restocking features. 
-                  To add stock, use the Restocking section instead of editing the item directly.
+                  <strong>Note:</strong> Item quantities and prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
+                  To add stock or update prices, use the Restocking section instead of editing the item directly.
                 </p>
               </div>
             )}
 
-            <div>
-              <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">
-                Cost Price (₦)
-              </label>
-              <input
-                id="cost_price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.cost_price}
-                onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
-                placeholder="0.00"
-              />
-              <p className="mt-1 text-xs text-gray-500">Purchase cost for one {formData.unit}</p>
-            </div>
+            {!editingItem && (
+              <>
+                <div>
+                  <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">
+                    Default Cost Price (₦) <span className="text-xs text-gray-500 font-normal">(Optional - for initial setup only)</span>
+                  </label>
+                  <input
+                    id="cost_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.cost_price}
+                    onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
+                    placeholder="0.00"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
+                    This is only used as a default value for new items. Actual prices are tracked per day in the stock system.
+                  </p>
+                </div>
 
-            <div>
-              <label htmlFor="selling_price" className="block text-sm font-medium text-gray-700 mb-1">
-                Selling Price (₦)
-              </label>
-              <input
-                id="selling_price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.selling_price}
-                onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
-                placeholder="0.00"
-              />
-              <p className="mt-1 text-xs text-gray-500">Selling price for one {formData.unit}</p>
-            </div>
+                <div>
+                  <label htmlFor="selling_price" className="block text-sm font-medium text-gray-700 mb-1">
+                    Default Selling Price (₦) <span className="text-xs text-gray-500 font-normal">(Optional - for initial setup only)</span>
+                  </label>
+                  <input
+                    id="selling_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.selling_price}
+                    onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
+                    placeholder="0.00"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
+                    This is only used as a default value for new items. Actual prices are tracked per day in the stock system.
+                  </p>
+                </div>
+              </>
+            )}
 
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
@@ -353,19 +364,7 @@ export default function ItemManagement() {
                   Unit
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Threshold
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cost Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Selling Price
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Description
@@ -378,7 +377,7 @@ export default function ItemManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                     No items found. Add your first item to get started.
                   </td>
                 </tr>
@@ -389,15 +388,6 @@ export default function ItemManagement() {
                       {item.name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₦{item.cost_price?.toFixed(2)}/{item.unit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₦{item.selling_price?.toFixed(2)}/{item.unit}
-                    </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{item.description || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
