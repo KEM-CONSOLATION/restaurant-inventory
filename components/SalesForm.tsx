@@ -487,6 +487,7 @@ export default function SalesForm() {
               date,
               description: description || null,
               old_quantity: editingSale.quantity,
+              user_id: user.id,
             }),
         })
 
@@ -584,7 +585,7 @@ export default function SalesForm() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this sales record? This will restore the item quantity.')) return
+    if (!confirm('Are you sure you want to delete this sales record?')) return
 
     setLoading(true)
     try {
@@ -595,7 +596,14 @@ export default function SalesForm() {
         return
       }
 
-      const response = await fetch(`/api/sales/delete?sale_id=${id}&item_id=${saleToDelete.item_id}&quantity=${saleToDelete.quantity}`, {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setMessage({ type: 'error', text: 'You must be logged in' })
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch(`/api/sales/delete?sale_id=${id}&item_id=${saleToDelete.item_id}&quantity=${saleToDelete.quantity}&date=${saleToDelete.date}&user_id=${user.id}`, {
         method: 'DELETE',
       })
 
@@ -604,7 +612,7 @@ export default function SalesForm() {
         throw new Error(data.error || 'Failed to delete sales record')
       }
 
-      setMessage({ type: 'success', text: 'Sales record deleted successfully! Item quantity restored.' })
+      setMessage({ type: 'success', text: 'Sales record deleted successfully!' })
       fetchSales()
       fetchItems()
     } catch (error: unknown) {

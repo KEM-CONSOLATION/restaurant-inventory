@@ -74,13 +74,14 @@ export async function GET(request: NextRequest) {
 
     // Calculate opening and closing stock for each item
     const report = items.map((item) => {
-      // Opening stock: Use existing record if manually entered, otherwise previous day's closing stock, otherwise item quantity
+      // Opening stock: ALWAYS use previous day's closing stock if available for consistency
+      // Only fall back to manually entered opening stock if no previous closing stock exists
       const existingOpening = existingOpeningStock?.find((os) => os.item_id === item.id)
       const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
-      const openingStock = existingOpening
+      const openingStock = prevClosing
+        ? parseFloat(prevClosing.quantity.toString()) // Always use previous day's closing stock if available
+        : existingOpening
         ? parseFloat(existingOpening.quantity.toString())
-        : prevClosing
-        ? parseFloat(prevClosing.quantity.toString())
         : item.quantity
 
       // Calculate total sales for this date

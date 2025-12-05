@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -110,6 +111,20 @@ export async function POST(request: NextRequest) {
 
     if (saleError) {
       return NextResponse.json({ error: saleError.message }, { status: 500 })
+    }
+
+    // For past dates: Recalculate closing stock and cascade update opening stock for subsequent days
+    if (isPastDate) {
+      try {
+        // Recalculate closing stock for this date
+        await recalculateClosingStock(date, user_id)
+        
+        // Cascade update opening stock for subsequent days
+        await cascadeUpdateFromDate(date, user_id)
+      } catch (error) {
+        console.error('Failed to cascade update after sale:', error)
+        // Don't fail the sale if cascade update fails
+      }
     }
 
     return NextResponse.json({ success: true, sale })
