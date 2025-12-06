@@ -36,7 +36,7 @@ export default function SuperAdminView() {
   const [newPassword, setNewPassword] = useState('')
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set())
-  const [allUsers, setAllUsers] = useState<Profile[]>([])
+  const [allUsers, setAllUsers] = useState<(Profile & { organization?: { name: string } | null })[]>([])
   const [usersLoading, setUsersLoading] = useState(false)
 
   useEffect(() => {
@@ -412,7 +412,7 @@ export default function SuperAdminView() {
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab('organizations')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              className={` cursor-pointer px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'organizations'
                   ? 'border-red-600 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -422,7 +422,7 @@ export default function SuperAdminView() {
             </button>
             <button
               onClick={() => setActiveTab('create-org')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-6 cursor-pointer py-4 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'create-org'
                   ? 'border-red-600 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -432,7 +432,7 @@ export default function SuperAdminView() {
             </button>
             <button
               onClick={() => setActiveTab('create-admin')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-6 py-4 cursor-pointer text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'create-admin'
                   ? 'border-red-600 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -442,7 +442,7 @@ export default function SuperAdminView() {
             </button>
             <button
               onClick={() => setActiveTab('all-users')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-6 py-4 cursor-pointer text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'all-users'
                   ? 'border-red-600 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -917,7 +917,7 @@ export default function SuperAdminView() {
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                            {(user as any).organization?.name || '-'}
+                            {user.organization?.name || '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             {new Date(user.created_at).toLocaleDateString()}
