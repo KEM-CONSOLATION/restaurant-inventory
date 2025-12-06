@@ -6,7 +6,38 @@
 -- This allows deleting users even if they have records
 -- =====================================================
 
--- Update opening_stock.recorded_by to allow deletion
+-- Step 1: Make recorded_by columns nullable (required for ON DELETE SET NULL)
+ALTER TABLE public.opening_stock 
+  ALTER COLUMN recorded_by DROP NOT NULL;
+
+ALTER TABLE public.closing_stock 
+  ALTER COLUMN recorded_by DROP NOT NULL;
+
+ALTER TABLE public.sales 
+  ALTER COLUMN recorded_by DROP NOT NULL;
+
+ALTER TABLE public.expenses 
+  ALTER COLUMN recorded_by DROP NOT NULL;
+
+-- Update restocking.recorded_by if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'restocking') THEN
+    ALTER TABLE public.restocking 
+    ALTER COLUMN recorded_by DROP NOT NULL;
+  END IF;
+END $$;
+
+-- Update waste_spoilage.recorded_by if table exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'waste_spoilage') THEN
+    ALTER TABLE public.waste_spoilage 
+    ALTER COLUMN recorded_by DROP NOT NULL;
+  END IF;
+END $$;
+
+-- Step 2: Update opening_stock.recorded_by foreign key to allow deletion
 DO $$
 BEGIN
   -- Drop existing constraint if it exists

@@ -93,19 +93,31 @@ export async function DELETE(request: NextRequest) {
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
-      console.error('Error deleting user from auth:', deleteError)
+      console.error('Error deleting user from auth:', {
+        error: deleteError,
+        message: deleteError.message,
+        status: deleteError.status,
+        userId
+      })
       
       // Provide more specific error messages
       let errorMessage = deleteError.message || 'Database error deleting user'
       
+      // Check for common error patterns
       if (deleteError.message?.includes('foreign key') || 
           deleteError.message?.includes('constraint') ||
-          deleteError.message?.includes('violates foreign key')) {
-        errorMessage = 'Cannot delete user: User has associated records. Please run the database migration to fix this.'
+          deleteError.message?.includes('violates foreign key') ||
+          deleteError.message?.includes('still referenced')) {
+        errorMessage = 'Cannot delete user: User has associated records (sales, stock, expenses). The database needs to be updated to allow deletion. Please contact support.'
+      } else if (deleteError.message?.includes('permission') || deleteError.message?.includes('unauthorized')) {
+        errorMessage = 'Permission denied: Unable to delete user. Please check your permissions.'
+      } else if (deleteError.message?.includes('not found')) {
+        errorMessage = 'User not found or already deleted.'
       }
       
       return NextResponse.json({ 
-        error: errorMessage
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? deleteError.message : undefined
       }, { status: 400 })
     }
 
