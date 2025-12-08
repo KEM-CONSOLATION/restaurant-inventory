@@ -3,53 +3,136 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { Item, OpeningStock, ClosingStock, Sale, Profile } from '@/types/database'
+import { Item, OpeningStock, ClosingStock, Sale, Profile, Organization } from '@/types/database'
+import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
 
 export default function HistoryView() {
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [openingStocks, setOpeningStocks] = useState<(OpeningStock & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [closingStocks, setClosingStocks] = useState<(ClosingStock & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [sales, setSales] = useState<(Sale & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'opening' | 'closing' | 'sales'>('opening')
+  const [organization, setOrganization] = useState<Organization | null>(null)
 
   useEffect(() => {
     fetchData()
-  }, [selectedDate])
+    fetchOrganization()
+  }, [startDate, endDate])
+
+  const fetchOrganization = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile?.organization_id) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', profile.organization_id)
+            .single()
+          setOrganization(org)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization:', error)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
     try {
-      const { data: openingData } = await supabase
+      // Get user's organization_id for filtering
+      const { data: { user } } = await supabase.auth.getUser()
+      let organizationId: string | null = null
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        organizationId = profile?.organization_id || null
+      }
+
+      // Validate date range
+      if (startDate > endDate) {
+        alert('Start date cannot be after end date')
+        setEndDate(startDate)
+        return
+      }
+
+      const today = format(new Date(), 'yyyy-MM-dd')
+      if (startDate > today || endDate > today) {
+        alert('Cannot select future dates')
+        setStartDate(today)
+        setEndDate(today)
+        return
+      }
+
+      // Fetch opening stock for date range
+      let openingQuery = supabase
         .from('opening_stock')
         .select('*, item:items(*), recorded_by_profile:profiles(*)')
-        .eq('date', selectedDate)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+      
+      if (organizationId) {
+        openingQuery = openingQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: openingData } = await openingQuery
 
       if (openingData) {
         setOpeningStocks(openingData as (OpeningStock & { item?: Item; recorded_by_profile?: Profile })[])
       }
 
-      const { data: closingData } = await supabase
+      // Fetch closing stock for date range
+      let closingQuery = supabase
         .from('closing_stock')
         .select('*, item:items(*), recorded_by_profile:profiles(*)')
-        .eq('date', selectedDate)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+      
+      if (organizationId) {
+        closingQuery = closingQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: closingData } = await closingQuery
 
       if (closingData) {
         setClosingStocks(closingData as (ClosingStock & { item?: Item; recorded_by_profile?: Profile })[])
       }
 
-      const { data: salesData } = await supabase
+      // Fetch sales for date range
+      let salesQuery = supabase
         .from('sales')
         .select('*, item:items(*), recorded_by_profile:profiles(*)')
-        .eq('date', selectedDate)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+      
+      if (organizationId) {
+        salesQuery = salesQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: salesData } = await salesQuery
 
       if (salesData) {
         setSales(salesData as (Sale & { item?: Item; recorded_by_profile?: Profile })[])
       }
     } catch (error) {
+      console.error('Error fetching history data:', error)
     } finally {
       setLoading(false)
     }
@@ -59,29 +142,205 @@ export default function HistoryView() {
     return sales.reduce((sum, sale) => sum + (sale.total_price || 0), 0)
   }
 
+  const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
+    const dateRangeLabel = startDate === endDate 
+      ? formatDate(startDate)
+      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+
+    if (activeTab === 'opening') {
+      const headers = ['Date', 'Item', 'Quantity', 'Unit', 'Recorded By']
+      const data = openingStocks.map(stock => [
+        formatDate(stock.date),
+        stock.item?.name || '-',
+        stock.quantity.toString(),
+        stock.item?.unit || '',
+        stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email || 'Unknown',
+      ])
+
+      const options = {
+        title: 'Opening Stock History',
+        subtitle: `Date Range: ${dateRangeLabel}`,
+        organizationName: organization?.name || undefined,
+        filename: `opening-stock-${startDate}-${endDate}.${format === 'excel' ? 'xlsx' : format}`,
+      }
+
+      if (format === 'excel') {
+        exportToExcel(data, headers, options)
+      } else if (format === 'pdf') {
+        exportToPDF(data, headers, options)
+      } else {
+        exportToCSV(data, headers, options)
+      }
+    } else if (activeTab === 'closing') {
+      const headers = ['Date', 'Item', 'Quantity', 'Unit', 'Recorded By']
+      const data = closingStocks.map(stock => [
+        formatDate(stock.date),
+        stock.item?.name || '-',
+        stock.quantity.toString(),
+        stock.item?.unit || '',
+        stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email || 'Unknown',
+      ])
+
+      const options = {
+        title: 'Closing Stock History',
+        subtitle: `Date Range: ${dateRangeLabel}`,
+        organizationName: organization?.name || undefined,
+        filename: `closing-stock-${startDate}-${endDate}.${format === 'excel' ? 'xlsx' : format}`,
+      }
+
+      if (format === 'excel') {
+        exportToExcel(data, headers, options)
+      } else if (format === 'pdf') {
+        exportToPDF(data, headers, options)
+      } else {
+        exportToCSV(data, headers, options)
+      }
+    } else if (activeTab === 'sales') {
+      const headers = ['Date', 'Item', 'Quantity', 'Unit', 'Price/Unit', 'Total Price', 'Description', 'Recorded By']
+      const data = sales.map(sale => [
+        formatDate(sale.date),
+        sale.item?.name || '-',
+        sale.quantity.toString(),
+        sale.item?.unit || '',
+        formatCurrency(sale.price_per_unit),
+        formatCurrency(sale.total_price),
+        sale.description || '-',
+        sale.recorded_by_profile?.full_name || sale.recorded_by_profile?.email || 'Unknown',
+      ])
+
+      // Add summary row
+      const summaryRow = [
+        '',
+        'TOTAL',
+        '',
+        '',
+        '',
+        formatCurrency(calculateTotalSales()),
+        '',
+        '',
+      ]
+      const exportData = [...data, [], summaryRow]
+
+      const options = {
+        title: 'Sales/Usage History',
+        subtitle: `Date Range: ${dateRangeLabel}`,
+        organizationName: organization?.name || undefined,
+        filename: `sales-history-${startDate}-${endDate}.${format === 'excel' ? 'xlsx' : format}`,
+      }
+
+      if (format === 'excel') {
+        exportToExcel(exportData, headers, options)
+      } else if (format === 'pdf') {
+        exportToPDF(exportData, headers, options)
+      } else {
+        exportToCSV(exportData, headers, options)
+      }
+    }
+  }
+
+  const getDateRangeLabel = () => {
+    if (startDate === endDate) {
+      return format(new Date(startDate), 'MMM dd, yyyy')
+    }
+    return `${format(new Date(startDate), 'MMM dd, yyyy')} - ${format(new Date(endDate), 'MMM dd, yyyy')}`
+  }
+
   return (
     <div>
       <div className="mb-6 bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
-          Select Date
-        </label>
-        <input
-          id="date"
-          type="date"
-          value={selectedDate}
-          max={format(new Date(), 'yyyy-MM-dd')}
-          onChange={(e) => {
-            const selectedDate = e.target.value
-            const today = format(new Date(), 'yyyy-MM-dd')
-            if (selectedDate > today) {
-              alert('Cannot select future dates. Please select today or a past date.')
-              setSelectedDate(today)
-            } else {
-              setSelectedDate(selectedDate)
-            }
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-gray-900 cursor-pointer"
-        />
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">History</h2>
+          {(openingStocks.length > 0 || closingStocks.length > 0 || sales.length > 0) && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleExport('excel')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"
+                title="Export to Excel"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2"
+                title="Export to PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </button>
+              <button
+                onClick={() => handleExport('csv')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                title="Export to CSV"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-2">
+              Start Date
+            </label>
+            <input
+              id="start-date"
+              type="date"
+              value={startDate}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => {
+                const newStartDate = e.target.value
+                const today = format(new Date(), 'yyyy-MM-dd')
+                if (newStartDate > today) {
+                  alert('Cannot select future dates. Please select today or a past date.')
+                  setStartDate(today)
+                } else if (newStartDate > endDate) {
+                  setEndDate(newStartDate)
+                  setStartDate(newStartDate)
+                } else {
+                  setStartDate(newStartDate)
+                }
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-gray-900 cursor-pointer"
+            />
+          </div>
+          <div>
+            <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-2">
+              End Date
+            </label>
+            <input
+              id="end-date"
+              type="date"
+              value={endDate}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              min={startDate}
+              onChange={(e) => {
+                const newEndDate = e.target.value
+                const today = format(new Date(), 'yyyy-MM-dd')
+                if (newEndDate > today) {
+                  alert('Cannot select future dates. Please select today or a past date.')
+                  setEndDate(today)
+                } else if (newEndDate < startDate) {
+                  alert('End date cannot be before start date.')
+                  setEndDate(startDate)
+                } else {
+                  setEndDate(newEndDate)
+                }
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-gray-900 cursor-pointer"
+            />
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-gray-500">
+          Showing records from <span className="font-medium">{getDateRangeLabel()}</span>
+        </p>
       </div>
 
       <div className="mb-6">
@@ -131,15 +390,16 @@ export default function HistoryView() {
           {activeTab === 'opening' && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Opening Stock - {format(new Date(selectedDate), 'MMM dd, yyyy')}
+                Opening Stock - {getDateRangeLabel()}
               </h2>
               {openingStocks.length === 0 ? (
-                <p className="text-gray-500">No opening stock records for this date</p>
+                <p className="text-gray-500">No opening stock records for this date range</p>
               ) : (
                 <div className="overflow-x-auto -mx-6 px-6">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
@@ -148,6 +408,9 @@ export default function HistoryView() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {openingStocks.map((stock) => (
                         <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(stock.date), 'MMM dd, yyyy')}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {stock.item?.name}
                           </td>
@@ -169,15 +432,16 @@ export default function HistoryView() {
           {activeTab === 'closing' && (
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Closing Stock - {format(new Date(selectedDate), 'MMM dd, yyyy')}
+                Closing Stock - {getDateRangeLabel()}
               </h2>
               {closingStocks.length === 0 ? (
-                <p className="text-gray-500">No closing stock records for this date</p>
+                <p className="text-gray-500">No closing stock records for this date range</p>
               ) : (
                 <div className="overflow-x-auto -mx-6 px-6">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
@@ -186,6 +450,9 @@ export default function HistoryView() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {closingStocks.map((stock) => (
                         <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(stock.date), 'MMM dd, yyyy')}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {stock.item?.name}
                           </td>
@@ -208,7 +475,7 @@ export default function HistoryView() {
             <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Sales/Usage - {format(new Date(selectedDate), 'MMM dd, yyyy')}
+                  Sales/Usage - {getDateRangeLabel()}
                 </h2>
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Total Sales</p>
@@ -216,12 +483,13 @@ export default function HistoryView() {
                 </div>
               </div>
               {sales.length === 0 ? (
-                <p className="text-gray-500">No sales records for this date</p>
+                <p className="text-gray-500">No sales records for this date range</p>
               ) : (
                 <div className="overflow-x-auto -mx-6 px-6">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
@@ -233,6 +501,9 @@ export default function HistoryView() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {sales.map((sale) => (
                         <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {format(new Date(sale.date), 'MMM dd, yyyy')}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {sale.item?.name}
                           </td>
