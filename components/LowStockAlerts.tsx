@@ -1,33 +1,178 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Item } from '@/types/database'
+import { format } from 'date-fns'
 import Link from 'next/link'
 
+interface LowStockItemWithQuantity extends Item {
+  currentQuantity: number
+}
+
 export default function LowStockAlerts() {
-  const [lowStockItems, setLowStockItems] = useState<Item[]>([])
+  const [lowStockItems, setLowStockItems] = useState<LowStockItemWithQuantity[]>([])
   const [loading, setLoading] = useState(true)
+  const notifiedItemsRef = useRef<Set<string>>(new Set()) // Track items we've already notified about
 
   useEffect(() => {
     fetchLowStockItems()
+    // Refresh every 5 minutes to check for new low stock items
+    const interval = setInterval(fetchLowStockItems, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
+
+  const createNotification = async (item: LowStockItemWithQuantity) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!profile?.organization_id) return
+
+      // Check if we've already notified about this item today
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const notificationKey = `${item.id}-${today}`
+      if (notifiedItemsRef.current.has(notificationKey)) {
+        return // Already notified today
+      }
+
+      const response = await fetch('/api/notifications/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          organization_id: profile.organization_id,
+          type: 'low_stock',
+          title: 'Low Stock Alert',
+          message: `${item.name} is running low (${item.currentQuantity.toFixed(2)} ${item.unit} remaining). Threshold: ${item.low_stock_threshold || 10} ${item.unit}`,
+          action_url: '/dashboard/restocking',
+          metadata: {
+            item_id: item.id,
+            item_name: item.name,
+            current_quantity: item.currentQuantity,
+            threshold: item.low_stock_threshold || 10,
+            unit: item.unit,
+          },
+        }),
+      })
+
+      if (response.ok) {
+        // Mark as notified for today
+        notifiedItemsRef.current.add(notificationKey)
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error)
+    }
+  }
 
   const fetchLowStockItems = async () => {
     try {
-      const { data: items } = await supabase
+      // Get user's organization_id
+      const { data: { user } } = await supabase.auth.getUser()
+      let organizationId: string | null = null
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        organizationId = profile?.organization_id || null
+      }
+
+      // Fetch items
+      let itemsQuery = supabase
         .from('items')
         .select('*')
         .order('name')
-
-      if (items) {
-        // Filter items where quantity is below threshold
-        const lowStock = items.filter(
-          (item: Item) => item.quantity <= (item.low_stock_threshold || 10)
-        )
-        setLowStockItems(lowStock)
+      
+      if (organizationId) {
+        itemsQuery = itemsQuery.eq('organization_id', organizationId)
       }
+      
+      const { data: items } = await itemsQuery
+
+      if (!items) {
+        setLoading(false)
+        return
+      }
+
+      // Get today's date
+      const today = format(new Date(), 'yyyy-MM-dd')
+
+      // Fetch opening stock for today
+      let openingStockQuery = supabase
+        .from('opening_stock')
+        .select('item_id, quantity')
+        .eq('date', today)
+      
+      if (organizationId) {
+        openingStockQuery = openingStockQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: openingStock } = await openingStockQuery
+
+      // Fetch restocking for today
+      let restockingQuery = supabase
+        .from('restocking')
+        .select('item_id, quantity')
+        .eq('date', today)
+      
+      if (organizationId) {
+        restockingQuery = restockingQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: restocking } = await restockingQuery
+
+      // Fetch sales for today
+      let salesQuery = supabase
+        .from('sales')
+        .select('item_id, quantity')
+        .eq('date', today)
+      
+      if (organizationId) {
+        salesQuery = salesQuery.eq('organization_id', organizationId)
+      }
+      
+      const { data: sales } = await salesQuery
+
+      // Calculate current stock for each item
+      const itemsWithQuantity: LowStockItemWithQuantity[] = items.map((item: Item) => {
+        const opening = openingStock?.find(os => os.item_id === item.id)
+        const restocked = restocking?.filter(r => r.item_id === item.id) || []
+        const sold = sales?.filter(s => s.item_id === item.id) || []
+
+        const openingQty = opening ? parseFloat(opening.quantity.toString()) : 0
+        const restockedQty = restocked.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+        const soldQty = sold.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
+
+        const currentQuantity = Math.max(0, openingQty + restockedQty - soldQty)
+
+        return {
+          ...item,
+          currentQuantity,
+        }
+      })
+
+      // Filter items where current quantity is below threshold
+      const threshold = 10 // Default threshold
+      const lowStock = itemsWithQuantity.filter(
+        (item) => item.currentQuantity <= (item.low_stock_threshold || threshold)
+      )
+
+      setLowStockItems(lowStock)
+
+      // Create notifications for new low stock items
+      lowStock.forEach((item) => {
+        createNotification(item)
+      })
     } catch (error) {
+      console.error('Error fetching low stock items:', error)
     } finally {
       setLoading(false)
     }
@@ -90,8 +235,8 @@ export default function LowStockAlerts() {
             <div>
               <p className="font-medium text-gray-900">{item.name}</p>
               <p className="text-sm text-gray-600">
-                Current: <span className="font-semibold text-red-600">{item.quantity}</span> {item.unit} • 
-                Threshold: <span className="font-semibold">{item.low_stock_threshold}</span> {item.unit}
+                Current: <span className="font-semibold text-red-600">{item.currentQuantity.toFixed(2)}</span> {item.unit} • 
+                Threshold: <span className="font-semibold">{item.low_stock_threshold || 10}</span> {item.unit}
               </p>
             </div>
             <div className="text-right">

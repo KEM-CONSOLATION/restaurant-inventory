@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { Sale, Item, Expense } from '@/types/database'
+import { Sale, Item, Expense, Organization } from '@/types/database'
 import { format } from 'date-fns'
+import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
 
 export default function ProfitLossView() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -13,6 +14,7 @@ export default function ProfitLossView() {
   const [totalProfit, setTotalProfit] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
+  const [organization, setOrganization] = useState<Organization | null>(null)
   const [salesDetails, setSalesDetails] = useState<Array<{
     item: Item
     quantity: number
@@ -25,7 +27,32 @@ export default function ProfitLossView() {
 
   useEffect(() => {
     calculateProfitLoss()
+    fetchOrganization()
   }, [selectedDate])
+
+  const fetchOrganization = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile?.organization_id) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', profile.organization_id)
+            .single()
+          setOrganization(org)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization:', error)
+    }
+  }
 
   const calculateProfitLoss = async () => {
     setLoading(true)
@@ -121,10 +148,89 @@ export default function ProfitLossView() {
     }
   }
 
+  const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
+    const headers = ['Item', 'Quantity', 'Unit', 'Selling Price', 'Cost Price', 'Total Sales', 'Total Cost', 'Profit']
+    const data = salesDetails.map(detail => [
+      detail.item.name,
+      detail.quantity,
+      detail.item.unit,
+      formatCurrency(detail.sellingPrice),
+      formatCurrency(detail.costPrice),
+      formatCurrency(detail.totalSelling),
+      formatCurrency(detail.totalCost),
+      formatCurrency(detail.profit),
+    ])
+
+    // Add summary row
+    const summaryRow = [
+      'TOTAL',
+      '',
+      '',
+      '',
+      '',
+      formatCurrency(totalSales),
+      formatCurrency(totalCost),
+      formatCurrency(totalProfit),
+    ]
+    const expensesRow = ['', '', '', '', '', 'Expenses:', formatCurrency(totalExpenses), '']
+    const netProfitRow = ['', '', '', '', '', 'Net Profit:', formatCurrency(netProfit), '']
+
+    const exportData = [...data, [], summaryRow, expensesRow, netProfitRow]
+
+    const options = {
+      title: 'Profit & Loss Report',
+      subtitle: `Date: ${formatDate(selectedDate)}`,
+      organizationName: organization?.name || undefined,
+      filename: `profit-loss-${selectedDate}.${format === 'excel' ? 'xlsx' : format}`,
+    }
+
+    if (format === 'excel') {
+      exportToExcel(exportData, headers, options)
+    } else if (format === 'pdf') {
+      exportToPDF(exportData, headers, options)
+    } else {
+      exportToCSV(exportData, headers, options)
+    }
+  }
+
   return (
     <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Profit & Loss Report</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">Profit & Loss Report</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleExport('excel')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"
+              title="Export to Excel"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Excel
+            </button>
+            <button
+              onClick={() => handleExport('pdf')}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2"
+              title="Export to PDF"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              PDF
+            </button>
+            <button
+              onClick={() => handleExport('csv')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+              title="Export to CSV"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              CSV
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-4">
           <label htmlFor="profit-date" className="block text-sm font-medium text-gray-700">
             Select Date

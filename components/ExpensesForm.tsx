@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { Expense, Profile } from '@/types/database'
+import { Expense, Profile, Organization } from '@/types/database'
 import { format, subDays } from 'date-fns'
+import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
 
 export default function ExpensesForm() {
   const [expenses, setExpenses] = useState<(Expense & { recorded_by_profile?: Profile })[]>([])
@@ -17,11 +18,37 @@ export default function ExpensesForm() {
   const [previousDaySales, setPreviousDaySales] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [balance, setBalance] = useState(0)
+  const [organization, setOrganization] = useState<Organization | null>(null)
 
   useEffect(() => {
     fetchExpenses()
     fetchPreviousDaySales()
+    fetchOrganization()
   }, [date])
+
+  const fetchOrganization = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile?.organization_id) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', profile.organization_id)
+            .single()
+          setOrganization(org)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization:', error)
+    }
+  }
 
   useEffect(() => {
     calculateBalance()
@@ -274,7 +301,95 @@ export default function ExpensesForm() {
 
       {expenses.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Expenses for {format(new Date(date), 'MMM dd, yyyy')}</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">Expenses for {format(new Date(date), 'MMM dd, yyyy')}</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const headers = ['Description', 'Category', 'Amount', 'Date', 'Recorded By']
+                  const data = expenses.map(exp => [
+                    exp.description,
+                    exp.category || '-',
+                    formatCurrency(exp.amount),
+                    formatDate(exp.date),
+                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                  ])
+                  const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
+                  const exportData = [...data, [], summaryRow]
+                  
+                  exportToExcel(exportData, headers, {
+                    title: 'Expenses Report',
+                    subtitle: `Date: ${formatDate(date)}`,
+                    organizationName: organization?.name || undefined,
+                    filename: `expenses-${date}.xlsx`,
+                  })
+                }}
+                className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-1"
+                title="Export to Excel"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </button>
+              <button
+                onClick={() => {
+                  const headers = ['Description', 'Category', 'Amount', 'Date', 'Recorded By']
+                  const data = expenses.map(exp => [
+                    exp.description,
+                    exp.category || '-',
+                    formatCurrency(exp.amount),
+                    formatDate(exp.date),
+                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                  ])
+                  const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
+                  const exportData = [...data, [], summaryRow]
+                  
+                  exportToPDF(exportData, headers, {
+                    title: 'Expenses Report',
+                    subtitle: `Date: ${formatDate(date)}`,
+                    organizationName: organization?.name || undefined,
+                    filename: `expenses-${date}.pdf`,
+                  })
+                }}
+                className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-1"
+                title="Export to PDF"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </button>
+              <button
+                onClick={() => {
+                  const headers = ['Description', 'Category', 'Amount', 'Date', 'Recorded By']
+                  const data = expenses.map(exp => [
+                    exp.description,
+                    exp.category || '-',
+                    formatCurrency(exp.amount),
+                    formatDate(exp.date),
+                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                  ])
+                  const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
+                  const exportData = [...data, [], summaryRow]
+                  
+                  exportToCSV(exportData, headers, {
+                    title: 'Expenses Report',
+                    subtitle: `Date: ${formatDate(date)}`,
+                    organizationName: organization?.name || undefined,
+                    filename: `expenses-${date}.csv`,
+                  })
+                }}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-1"
+                title="Export to CSV"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </button>
+            </div>
+          </div>
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
