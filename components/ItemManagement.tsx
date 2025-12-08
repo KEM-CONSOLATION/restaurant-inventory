@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Item } from '@/types/database'
+import { format } from 'date-fns'
 
 export default function ItemManagement() {
   const [items, setItems] = useState<Item[]>([])
@@ -101,13 +102,51 @@ export default function ItemManagement() {
           itemData.organization_id = profile.organization_id
         }
 
-        const { error } = await supabase.from('items').insert(itemData)
+        const { data: insertedItem, error } = await supabase.from('items').insert(itemData).select().single()
 
         if (error) throw error
-        setMessage({ 
-          type: 'success', 
-          text: 'Item created successfully! Remember to restock it to make it available for sales.' 
-        })
+
+        // If quantity > 0, automatically create opening stock for today
+        const initialQuantity = parseInt(formData.quantity, 10) || 0
+        if (initialQuantity > 0 && insertedItem) {
+          const today = new Date().toISOString().split('T')[0]
+          
+          // Create opening stock record
+          const openingStockData = {
+            item_id: insertedItem.id,
+            quantity: initialQuantity,
+            cost_price: parseFloat(formData.cost_price) || null,
+            selling_price: parseFloat(formData.selling_price) || null,
+            date: today,
+            recorded_by: user.id,
+            organization_id: profile?.organization_id || null,
+            notes: 'Auto-created opening stock when item was added',
+          }
+
+          const { error: openingStockError } = await supabase
+            .from('opening_stock')
+            .upsert(openingStockData, {
+              onConflict: 'item_id,date,organization_id',
+            })
+
+          if (openingStockError) {
+            console.error('Failed to create opening stock:', openingStockError)
+            setMessage({ 
+              type: 'success', 
+              text: 'Item created successfully, but failed to create opening stock. Please add opening stock manually.' 
+            })
+          } else {
+            setMessage({ 
+              type: 'success', 
+              text: `Item created successfully! Opening stock of ${initialQuantity} ${formData.unit} has been automatically created for today.` 
+            })
+          }
+        } else {
+          setMessage({ 
+            type: 'success', 
+            text: 'Item created successfully! Add opening stock or restock to make it available for sales.' 
+          })
+        }
       }
 
       setFormData({ name: '', unit: 'pieces', quantity: '', low_stock_threshold: '10', cost_price: '', selling_price: '', description: '' })
@@ -279,7 +318,7 @@ export default function ItemManagement() {
             {!editingItem && (
               <div>
                 <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">
-                  Initial Quantity * (for new items only)
+                  Initial Opening Stock Quantity * (for new items only)
                 </label>
                 <input
                   id="quantity"
@@ -293,9 +332,8 @@ export default function ItemManagement() {
                   placeholder="0"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  <strong>Note:</strong> This is only used as an initial value. Actual stock quantities are managed through 
-                  <strong> Opening Stock</strong> and <strong>Restocking</strong> features. The quantity field is not displayed 
-                  in the items table to avoid confusion with the opening/closing stock system.
+                  <strong>Note:</strong> If you enter a quantity greater than 0, an opening stock record will be automatically created for today's date. 
+                  This makes the item immediately available for sales. You can also leave it as 0 and add opening stock manually later.
                 </p>
               </div>
             )}

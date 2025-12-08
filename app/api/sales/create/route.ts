@@ -21,6 +21,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Get user's organization_id
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user_id)
+      .single()
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
+    }
+
+    const organization_id = profile.organization_id
+
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
@@ -52,7 +65,7 @@ export async function POST(request: NextRequest) {
 
       const restockQty = parseFloat(restocking.quantity.toString())
       const totalSalesSoFar = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
-      availableStock = restockQty - totalSalesSoFar
+      availableStock = Math.max(0, restockQty - totalSalesSoFar)
       stockInfo = `Restocked: ${restockQty}, Sold from this batch: ${totalSalesSoFar}`
     } else if (opening_stock_id) {
       const { data: openingStock } = await supabaseAdmin
@@ -131,14 +144,7 @@ export async function POST(request: NextRequest) {
           stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesSoFar}`
         }
 
-    if (availableStock <= 0) {
-      return NextResponse.json(
-        { error: `No available stock for ${date}. ${stockInfo}` },
-        { status: 400 }
-      )
-    }
-
-    if (parseFloat(quantity) > availableStock) {
+    if (availableStock < parseFloat(quantity)) {
       return NextResponse.json(
         { error: `Cannot record sales of ${quantity}. Available stock: ${availableStock} (${stockInfo})` },
         { status: 400 }
@@ -161,6 +167,7 @@ export async function POST(request: NextRequest) {
         payment_mode: payment_mode || 'cash',
         date,
         recorded_by: user_id,
+        organization_id: organization_id,
         description: description || null,
         restocking_id: restocking_id || null,
         opening_stock_id: opening_stock_id || null,
