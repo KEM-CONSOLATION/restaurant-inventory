@@ -20,6 +20,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing date or user_id' }, { status: 400 })
     }
 
+    // Get user's organization_id
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user_id)
+      .single()
+    
+    const organizationId = profile?.organization_id || null
+
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
@@ -32,33 +41,50 @@ export async function POST(request: NextRequest) {
     prevDate.setDate(prevDate.getDate() - 1)
     const prevDateStr = prevDate.toISOString().split('T')[0]
 
-    // Get all items
-    const { data: items, error: itemsError } = await supabaseAdmin
+    // Helper function to add organization filter
+    const addOrgFilter = (query: any) => {
+      return organizationId ? query.eq('organization_id', organizationId) : query
+    }
+
+    // Get all items for this organization
+    let itemsQuery = supabaseAdmin
       .from('items')
       .select('*')
       .order('name')
+    
+    if (organizationId) {
+      itemsQuery = itemsQuery.eq('organization_id', organizationId)
+    }
+    
+    const { data: items, error: itemsError } = await itemsQuery
 
     if (itemsError || !items) {
       return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
     }
 
     // Get previous day's closing stock
-    const { data: prevClosingStock } = await supabaseAdmin
+    let prevClosingStockQuery = supabaseAdmin
       .from('closing_stock')
       .select('item_id, quantity')
       .eq('date', prevDateStr)
+    prevClosingStockQuery = addOrgFilter(prevClosingStockQuery)
+    const { data: prevClosingStock } = await prevClosingStockQuery
 
     // Get previous day's opening stock to use prices if available
-    const { data: prevOpeningStock } = await supabaseAdmin
+    let prevOpeningStockQuery = supabaseAdmin
       .from('opening_stock')
       .select('item_id, cost_price, selling_price')
       .eq('date', prevDateStr)
+    prevOpeningStockQuery = addOrgFilter(prevOpeningStockQuery)
+    const { data: prevOpeningStock } = await prevOpeningStockQuery
 
     // Check if opening stock already exists for this date
-    const { data: existingOpeningStock } = await supabaseAdmin
+    let existingOpeningStockQuery = supabaseAdmin
       .from('opening_stock')
       .select('item_id')
       .eq('date', date)
+    existingOpeningStockQuery = addOrgFilter(existingOpeningStockQuery)
+    const { data: existingOpeningStock } = await existingOpeningStockQuery
 
     const existingItemIds = new Set(existingOpeningStock?.map((os) => os.item_id) || [])
 
@@ -84,6 +110,7 @@ export async function POST(request: NextRequest) {
           selling_price: sellingPrice,
           date,
           recorded_by: user_id,
+          organization_id: organizationId,
           notes: prevClosing
             ? `Auto-created from previous day's closing stock (${prevDateStr})`
             : `Auto-created with zero quantity (no closing stock found for ${prevDateStr})`,

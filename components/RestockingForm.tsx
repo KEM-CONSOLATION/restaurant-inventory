@@ -345,12 +345,20 @@ export default function RestockingForm() {
         setMessage({ type: 'success', text: 'Restocking updated successfully!' })
         setEditingRestocking(null)
       } else {
+        // Get user's organization_id
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single()
+        
         // Create new restocking
         const { error } = await supabase.from('restocking').insert({
           item_id: selectedItem,
           quantity: quantityValue,
           date,
           recorded_by: user.id,
+          organization_id: profile?.organization_id || null,
           notes: notes || null,
           ...restockingPriceData,
         })

@@ -21,6 +21,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
+    // Get user's organization_id
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user_id)
+      .single()
+    
+    const organizationId = profile?.organization_id || null
+
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
@@ -30,30 +39,40 @@ export async function PUT(request: NextRequest) {
     // Check if this is a past date
     const isPastDate = date < today
 
+    // Helper function to add organization filter
+    const addOrgFilter = (query: any) => {
+      return organizationId ? query.eq('organization_id', organizationId) : query
+    }
+
     let availableStock = 0
     let stockInfo = ''
 
     if (isPastDate) {
       // For past dates: Opening Stock + Restocking - Sales (excluding this one)
-      const { data: openingStock } = await supabaseAdmin
+      let openingStockQuery = supabaseAdmin
         .from('opening_stock')
         .select('quantity')
         .eq('item_id', item_id)
         .eq('date', date)
-        .single()
+      openingStockQuery = addOrgFilter(openingStockQuery)
+      const { data: openingStock } = await openingStockQuery.single()
 
-      const { data: restocking } = await supabaseAdmin
+      let restockingQuery = supabaseAdmin
         .from('restocking')
         .select('quantity')
         .eq('item_id', item_id)
         .eq('date', date)
+      restockingQuery = addOrgFilter(restockingQuery)
+      const { data: restocking } = await restockingQuery
 
-      const { data: existingSales } = await supabaseAdmin
+      let existingSalesQuery = supabaseAdmin
         .from('sales')
         .select('quantity')
         .eq('item_id', item_id)
         .eq('date', date)
         .neq('id', sale_id)
+      existingSalesQuery = addOrgFilter(existingSalesQuery)
+      const { data: existingSales } = await existingSalesQuery
 
       const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
       const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
@@ -64,25 +83,30 @@ export async function PUT(request: NextRequest) {
         } else {
           // For today: Opening Stock + Restocking - Other sales already made today
           // Quantities only come from opening/closing stock - not from item.quantity
-          const { data: openingStock } = await supabaseAdmin
+          let openingStockQuery = supabaseAdmin
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', item_id)
             .eq('date', date)
-            .single()
+          openingStockQuery = addOrgFilter(openingStockQuery)
+          const { data: openingStock } = await openingStockQuery.single()
 
-          const { data: restocking } = await supabaseAdmin
+          let restockingQuery = supabaseAdmin
             .from('restocking')
             .select('quantity')
             .eq('item_id', item_id)
             .eq('date', date)
+          restockingQuery = addOrgFilter(restockingQuery)
+          const { data: restocking } = await restockingQuery
 
-          const { data: existingSales } = await supabaseAdmin
+          let existingSalesQuery = supabaseAdmin
             .from('sales')
             .select('quantity')
             .eq('item_id', item_id)
             .eq('date', date)
             .neq('id', sale_id)
+          existingSalesQuery = addOrgFilter(existingSalesQuery)
+          const { data: existingSales } = await existingSalesQuery
 
           const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
           const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0

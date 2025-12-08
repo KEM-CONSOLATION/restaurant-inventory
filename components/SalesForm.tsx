@@ -72,25 +72,42 @@ function StockAvailabilityDisplay({
 
         const salesIncludingNew = totalSales + (quantityToRecord || 0)
         
+        // Get user's organization_id for filtering
+        const { data: { user } } = await supabase.auth.getUser()
+        let organizationId: string | null = null
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('id', user.id)
+            .single()
+          organizationId = profile?.organization_id || null
+        }
+
         if (isPastDate) {
-          const { data: openingStockData } = await supabase
+          let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
-            .limit(1)
+          if (organizationId) openingStockQuery = openingStockQuery.eq('organization_id', organizationId)
+          const { data: openingStockData } = await openingStockQuery.limit(1)
 
-          const { data: restocking } = await supabase
+          let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
+          if (organizationId) restockingQuery = restockingQuery.eq('organization_id', organizationId)
+          const { data: restocking } = await restockingQuery
 
-          const { data: wasteSpoilage } = await supabase
+          let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
+          if (organizationId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', organizationId)
+          const { data: wasteSpoilage } = await wasteSpoilageQuery
 
           const openingStock = openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
           const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
@@ -108,24 +125,29 @@ function StockAvailabilityDisplay({
             setStockInfo(`Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold: ${totalSales}, Waste/Spoilage: ${totalWasteSpoilage}`)
           }
         } else {
-          const { data: openingStockData } = await supabase
+          let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
-            .limit(1)
+          if (organizationId) openingStockQuery = openingStockQuery.eq('organization_id', organizationId)
+          const { data: openingStockData } = await openingStockQuery.limit(1)
 
-          const { data: restocking } = await supabase
+          let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
+          if (organizationId) restockingQuery = restockingQuery.eq('organization_id', organizationId)
+          const { data: restocking } = await restockingQuery
 
-          const { data: wasteSpoilage } = await supabase
+          let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
+          if (organizationId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', organizationId)
+          const { data: wasteSpoilage } = await wasteSpoilageQuery
 
           const openingStock = openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
           const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
