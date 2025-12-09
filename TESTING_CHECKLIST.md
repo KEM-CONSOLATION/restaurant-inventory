@@ -62,6 +62,7 @@ Use this checklist to verify all three features are working correctly.
 ### Creating Test Notifications
 
 **Option 1: Via API (Manual Test)**
+
 ```bash
 # Replace USER_ID and ORG_ID with actual values
 curl -X POST http://localhost:3000/api/notifications/create \
@@ -77,6 +78,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 ```
 
 **Option 2: Via Low Stock Alerts (Automatic)**
+
 - [ ] Create an item with low stock (current quantity < threshold)
 - [ ] Wait for LowStockAlerts to detect it
 - [ ] Notification should appear automatically
@@ -152,6 +154,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 **Issue**: Notification bell doesn't appear or notifications don't load
 
 **Check:**
+
 1. Verify `notifications` table exists in Supabase
 2. Check browser console for errors
 3. Verify user has `organization_id` set
@@ -159,6 +162,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 5. Verify user is not a superadmin (superadmins don't see notifications)
 
 **Fix:**
+
 ```sql
 -- Run this in Supabase SQL Editor to check if table exists
 SELECT * FROM notifications LIMIT 1;
@@ -169,11 +173,13 @@ SELECT * FROM notifications LIMIT 1;
 **Issue**: Clicking export buttons doesn't download files
 
 **Check:**
+
 1. Browser console for errors
 2. Browser download settings (some browsers block downloads)
 3. Verify libraries are installed: `npm list xlsx jspdf jspdf-autotable`
 
 **Fix:**
+
 - Check browser's download settings
 - Try a different browser
 - Check if pop-up blocker is enabled
@@ -183,6 +189,7 @@ SELECT * FROM notifications LIMIT 1;
 **Issue**: All values show as zero
 
 **Check:**
+
 1. Verify opening stock exists for selected date
 2. Check items have `cost_price` and `selling_price` set
 3. Verify `organization_id` is set on all records
@@ -193,27 +200,32 @@ SELECT * FROM notifications LIMIT 1;
 ## ✅ Verification Steps
 
 ### Step 1: Database Check
+
 ```sql
 -- Run in Supabase SQL Editor
 SELECT COUNT(*) FROM notifications;
 ```
 
 ### Step 2: Create Test Notification
+
 Use the API endpoint or wait for LowStockAlerts to create one automatically.
 
 ### Step 3: Visual Check
+
 1. Open dashboard
 2. Check if notification bell appears in header
 3. Click bell to open dropdown
 4. Verify notifications appear
 
 ### Step 4: Export Test
+
 1. Go to Profit & Loss page
 2. Select a date with data
 3. Click each export button
 4. Verify files download and contain correct data
 
 ### Step 5: Valuation Test
+
 1. Go to Inventory Valuation page
 2. Select a date
 3. Verify calculations are correct
@@ -236,5 +248,4 @@ All features are working when:
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

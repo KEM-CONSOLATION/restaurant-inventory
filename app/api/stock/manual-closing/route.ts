@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       .select('organization_id')
       .eq('id', user_id)
       .single()
-    
+
     const organizationId = profile?.organization_id || null
 
     // Validate items array
@@ -60,4 +60,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

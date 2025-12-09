@@ -15,7 +15,18 @@ export async function PUT(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { sale_id, item_id, quantity, price_per_unit, total_price, payment_mode, date, description, old_quantity, user_id } = body
+    const {
+      sale_id,
+      item_id,
+      quantity,
+      price_per_unit,
+      total_price,
+      payment_mode,
+      date,
+      description,
+      old_quantity,
+      user_id,
+    } = body
 
     if (!sale_id || !item_id || !quantity || !date || old_quantity === undefined || !user_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -27,7 +38,7 @@ export async function PUT(request: NextRequest) {
       .select('organization_id')
       .eq('id', user_id)
       .single()
-    
+
     const organizationId = profile?.organization_id || null
 
     // Reject future dates
@@ -75,46 +86,50 @@ export async function PUT(request: NextRequest) {
       const { data: existingSales } = await existingSalesQuery
 
       const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
-      const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
-      const totalSalesExcludingThis = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const totalRestocking =
+        restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const totalSalesExcludingThis =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
       availableStock = openingQty + totalRestocking - totalSalesExcludingThis
       stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold: ${totalSalesExcludingThis}`
-        } else {
-          // For today: Opening Stock + Restocking - Other sales already made today
-          // Quantities only come from opening/closing stock - not from item.quantity
-          let openingStockQuery = supabaseAdmin
-            .from('opening_stock')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-          openingStockQuery = addOrgFilter(openingStockQuery)
-          const { data: openingStock } = await openingStockQuery.single()
+    } else {
+      // For today: Opening Stock + Restocking - Other sales already made today
+      // Quantities only come from opening/closing stock - not from item.quantity
+      let openingStockQuery = supabaseAdmin
+        .from('opening_stock')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+      openingStockQuery = addOrgFilter(openingStockQuery)
+      const { data: openingStock } = await openingStockQuery.single()
 
-          let restockingQuery = supabaseAdmin
-            .from('restocking')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-          restockingQuery = addOrgFilter(restockingQuery)
-          const { data: restocking } = await restockingQuery
+      let restockingQuery = supabaseAdmin
+        .from('restocking')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+      restockingQuery = addOrgFilter(restockingQuery)
+      const { data: restocking } = await restockingQuery
 
-          let existingSalesQuery = supabaseAdmin
-            .from('sales')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-            .neq('id', sale_id)
-          existingSalesQuery = addOrgFilter(existingSalesQuery)
-          const { data: existingSales } = await existingSalesQuery
+      let existingSalesQuery = supabaseAdmin
+        .from('sales')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+        .neq('id', sale_id)
+      existingSalesQuery = addOrgFilter(existingSalesQuery)
+      const { data: existingSales } = await existingSalesQuery
 
-          const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
-          const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
-          const totalSalesExcludingThis = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
+      const totalRestocking =
+        restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const totalSalesExcludingThis =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
-          availableStock = openingQty + totalRestocking - totalSalesExcludingThis
-          stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesExcludingThis}`
-        }
+      availableStock = openingQty + totalRestocking - totalSalesExcludingThis
+      stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesExcludingThis}`
+    }
 
     if (availableStock <= 0) {
       return NextResponse.json(
@@ -153,7 +168,7 @@ export async function PUT(request: NextRequest) {
       try {
         // Recalculate closing stock for this date
         await recalculateClosingStock(date, user_id)
-        
+
         // Cascade update opening stock for subsequent days
         await cascadeUpdateFromDate(date, user_id)
       } catch (error) {
@@ -168,4 +183,3 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

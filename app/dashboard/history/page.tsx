@@ -34,7 +34,9 @@ export default async function HistoryPage() {
       <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">History</h1>
-          <p className="mt-2 text-gray-600">View past records of opening stocks, closing stocks, and sales</p>
+          <p className="mt-2 text-gray-600">
+            View past records of opening stocks, closing stocks, and sales
+          </p>
         </div>
 
         <HistoryView />
@@ -42,4 +44,3 @@ export default async function HistoryPage() {
     </DashboardLayout>
   )
 }
-

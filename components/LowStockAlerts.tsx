@@ -24,7 +24,9 @@ export default function LowStockAlerts() {
 
   const createNotification = async (item: LowStockItemWithQuantity) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return
 
       const { data: profile } = await supabase
@@ -74,7 +76,9 @@ export default function LowStockAlerts() {
   const fetchLowStockItems = async () => {
     try {
       // Get user's organization_id
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       let organizationId: string | null = null
       if (user) {
         const { data: profile } = await supabase
@@ -86,15 +90,12 @@ export default function LowStockAlerts() {
       }
 
       // Fetch items
-      let itemsQuery = supabase
-        .from('items')
-        .select('*')
-        .order('name')
-      
+      let itemsQuery = supabase.from('items').select('*').order('name')
+
       if (organizationId) {
         itemsQuery = itemsQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: items } = await itemsQuery
 
       if (!items) {
@@ -110,11 +111,11 @@ export default function LowStockAlerts() {
         .from('opening_stock')
         .select('item_id, quantity')
         .eq('date', today)
-      
+
       if (organizationId) {
         openingStockQuery = openingStockQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: openingStock } = await openingStockQuery
 
       // Fetch restocking for today
@@ -122,23 +123,20 @@ export default function LowStockAlerts() {
         .from('restocking')
         .select('item_id, quantity')
         .eq('date', today)
-      
+
       if (organizationId) {
         restockingQuery = restockingQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: restocking } = await restockingQuery
 
       // Fetch sales for today
-      let salesQuery = supabase
-        .from('sales')
-        .select('item_id, quantity')
-        .eq('date', today)
-      
+      let salesQuery = supabase.from('sales').select('item_id, quantity').eq('date', today)
+
       if (organizationId) {
         salesQuery = salesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: sales } = await salesQuery
 
       // Calculate current stock for each item
@@ -148,7 +146,10 @@ export default function LowStockAlerts() {
         const sold = sales?.filter(s => s.item_id === item.id) || []
 
         const openingQty = opening ? parseFloat(opening.quantity.toString()) : 0
-        const restockedQty = restocked.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+        const restockedQty = restocked.reduce(
+          (sum, r) => sum + parseFloat(r.quantity.toString()),
+          0
+        )
         const soldQty = sold.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
 
         const currentQuantity = Math.max(0, openingQty + restockedQty - soldQty)
@@ -162,13 +163,13 @@ export default function LowStockAlerts() {
       // Filter items where current quantity is below threshold
       const threshold = 10 // Default threshold
       const lowStock = itemsWithQuantity.filter(
-        (item) => item.currentQuantity <= (item.low_stock_threshold || threshold)
+        item => item.currentQuantity <= (item.low_stock_threshold || threshold)
       )
 
       setLowStockItems(lowStock)
 
       // Create notifications for new low stock items
-      lowStock.forEach((item) => {
+      lowStock.forEach(item => {
         createNotification(item)
       })
     } catch (error) {
@@ -194,8 +195,18 @@ export default function LowStockAlerts() {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <div className="flex items-center">
-          <svg className="w-6 h-6 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-6 h-6 text-green-600 mr-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <div>
             <h3 className="text-lg font-semibold text-green-900">All Stock Levels Good</h3>
@@ -210,12 +221,24 @@ export default function LowStockAlerts() {
     <div className="bg-red-50 border border-red-200 rounded-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <svg className="w-6 h-6 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <svg
+            className="w-6 h-6 text-red-600 mr-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
           <div>
             <h3 className="text-lg font-semibold text-red-900">Low Stock Alert</h3>
-            <p className="text-red-700 text-sm">{lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} running low</p>
+            <p className="text-red-700 text-sm">
+              {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} running low
+            </p>
           </div>
         </div>
         <Link
@@ -227,7 +250,7 @@ export default function LowStockAlerts() {
       </div>
 
       <div className="space-y-2">
-        {lowStockItems.slice(0, 5).map((item) => (
+        {lowStockItems.slice(0, 5).map(item => (
           <div
             key={item.id}
             className="bg-white rounded-lg p-3 border border-red-200 flex items-center justify-between"
@@ -235,8 +258,12 @@ export default function LowStockAlerts() {
             <div>
               <p className="font-medium text-gray-900">{item.name}</p>
               <p className="text-sm text-gray-600">
-                Current: <span className="font-semibold text-red-600">{item.currentQuantity.toFixed(2)}</span> {item.unit} • 
-                Threshold: <span className="font-semibold">{item.low_stock_threshold || 10}</span> {item.unit}
+                Current:{' '}
+                <span className="font-semibold text-red-600">
+                  {item.currentQuantity.toFixed(2)}
+                </span>{' '}
+                {item.unit} • Threshold:{' '}
+                <span className="font-semibold">{item.low_stock_threshold || 10}</span> {item.unit}
               </p>
             </div>
             <div className="text-right">
@@ -255,4 +282,3 @@ export default function LowStockAlerts() {
     </div>
   )
 }
-

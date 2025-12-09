@@ -27,7 +27,9 @@ export default function UserManagement() {
     setLoading(true)
     setError(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) return
 
       const { data: profile } = await supabase
@@ -71,7 +73,9 @@ export default function UserManagement() {
     setError(null)
     setSuccess(null)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) {
         setError('Not authenticated')
         return
@@ -92,7 +96,7 @@ export default function UserManagement() {
 
       setSuccess(`User role updated to ${newRole}`)
       fetchUsers()
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
@@ -117,7 +121,7 @@ export default function UserManagement() {
 
       setSuccess('User deleted successfully')
       fetchUsers()
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
@@ -149,7 +153,7 @@ export default function UserManagement() {
       setSuccess(`User ${newUser.email} created successfully!`)
       setNewUser({ email: '', password: '', fullName: '', role: 'staff' })
       setShowCreateForm(false)
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000))
       await fetchUsers()
 
@@ -200,7 +204,7 @@ export default function UserManagement() {
                 id="email"
                 type="email"
                 value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="user@example.com"
@@ -216,7 +220,7 @@ export default function UserManagement() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
                   required
                   minLength={6}
                   className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
@@ -230,12 +234,27 @@ export default function UserManagement() {
                 >
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                      />
                     </svg>
                   ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
                     </svg>
                   )}
                 </button>
@@ -250,7 +269,7 @@ export default function UserManagement() {
                 id="fullName"
                 type="text"
                 value={newUser.fullName}
-                onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })}
+                onChange={e => setNewUser({ ...newUser, fullName: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="John Doe"
               />
@@ -263,7 +282,12 @@ export default function UserManagement() {
               <select
                 id="role"
                 value={newUser.role}
-                onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'staff' | 'superadmin' })}
+                onChange={e =>
+                  setNewUser({
+                    ...newUser,
+                    role: e.target.value as 'admin' | 'staff' | 'superadmin',
+                  })
+                }
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
               >
                 <option value="staff">Staff</option>
@@ -301,95 +325,94 @@ export default function UserManagement() {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Full Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created At
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.length === 0 ? (
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No users found
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Full Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Created At
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {user.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.full_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.role === 'superadmin'
-                            ? 'bg-red-100 text-red-800'
-                            : user.role === 'admin'
-                            ? 'bg-purple-100 text-purple-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        {user.role === 'superadmin' ? (
-                          <span className="text-xs text-red-600 font-semibold">Superadmin</span>
-                        ) : user.role === 'admin' ? (
-                          <button
-                            onClick={() => updateUserRole(user.id, 'staff')}
-                            className="text-indigo-600 hover:text-indigo-900 cursor-pointer text-xs"
-                          >
-                            Set as Staff
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => updateUserRole(user.id, 'admin')}
-                            className="text-indigo-600 hover:text-indigo-900 cursor-pointer text-xs"
-                          >
-                            Set as Admin
-                          </button>
-                        )}
-                        {user.role !== 'superadmin' && (
-                          <button
-                            onClick={() => deleteUser(user.id, user.email)}
-                            className="text-red-600 hover:text-red-900 cursor-pointer text-xs ml-2"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      No users found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  users.map(user => (
+                    <tr key={user.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {user.email}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.full_name || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            user.role === 'superadmin'
+                              ? 'bg-red-100 text-red-800'
+                              : user.role === 'admin'
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          {user.role === 'superadmin' ? (
+                            <span className="text-xs text-red-600 font-semibold">Superadmin</span>
+                          ) : user.role === 'admin' ? (
+                            <button
+                              onClick={() => updateUserRole(user.id, 'staff')}
+                              className="text-indigo-600 hover:text-indigo-900 cursor-pointer text-xs"
+                            >
+                              Set as Staff
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => updateUserRole(user.id, 'admin')}
+                              className="text-indigo-600 hover:text-indigo-900 cursor-pointer text-xs"
+                            >
+                              Set as Admin
+                            </button>
+                          )}
+                          {user.role !== 'superadmin' && (
+                            <button
+                              onClick={() => deleteUser(user.id, user.email)}
+                              className="text-red-600 hover:text-red-900 cursor-pointer text-xs ml-2"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
     </div>
   )
 }
-

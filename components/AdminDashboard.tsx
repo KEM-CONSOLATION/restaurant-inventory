@@ -12,10 +12,17 @@ import SuperAdminView from './SuperAdminView'
 
 function ResetQuantitiesSection() {
   const [resetting, setResetting] = useState(false)
-  const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [resetMessage, setResetMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
 
   const handleResetQuantities = async () => {
-    if (!confirm('This will set all item quantities to zero. The system will then only use opening/closing stock for quantities. This cannot be undone. Continue?')) {
+    if (
+      !confirm(
+        'This will set all item quantities to zero. The system will then only use opening/closing stock for quantities. This cannot be undone. Continue?'
+      )
+    ) {
       return
     }
 
@@ -36,7 +43,9 @@ function ResetQuantitiesSection() {
 
       setResetMessage({
         type: 'success',
-        text: data.message || `Success! ${data.items_updated} item quantity(ies) reset to zero. The system will now only use opening/closing stock for quantities.`,
+        text:
+          data.message ||
+          `Success! ${data.items_updated} item quantity(ies) reset to zero. The system will now only use opening/closing stock for quantities.`,
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to reset quantities'
@@ -50,10 +59,10 @@ function ResetQuantitiesSection() {
     <div className="bg-white shadow rounded-lg p-6 mb-6 border-2 border-orange-200 hidden">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">Reset Item Quantities</h3>
       <p className="text-sm text-gray-600 mb-4">
-        Set all item quantities to zero. After this, the system will only use opening/closing stock for quantities. 
-        If no opening/closing stock exists, the quantity will be zero.
+        Set all item quantities to zero. After this, the system will only use opening/closing stock
+        for quantities. If no opening/closing stock exists, the quantity will be zero.
       </p>
-      
+
       {resetMessage && (
         <div
           className={`p-3 rounded mb-4 ${
@@ -73,10 +82,10 @@ function ResetQuantitiesSection() {
       >
         {resetting ? 'Resetting...' : 'Reset All Quantities to Zero'}
       </button>
-      
+
       <p className="mt-3 text-xs text-gray-500">
-        <strong>Warning:</strong> This action cannot be undone. Make sure you have recorded opening/closing stock 
-        for your items before resetting quantities.
+        <strong>Warning:</strong> This action cannot be undone. Make sure you have recorded
+        opening/closing stock for your items before resetting quantities.
       </p>
     </div>
   )
@@ -84,15 +93,24 @@ function ResetQuantitiesSection() {
 
 function DeleteAllStockDataSection() {
   const [deleting, setDeleting] = useState(false)
-  const [deleteMessage, setDeleteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [deleteMessage, setDeleteMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+  } | null>(null)
 
   const handleDeleteAllStock = async () => {
-    if (!confirm('⚠️ WARNING: This will DELETE ALL stock data including:\n\n- Opening Stock\n- Closing Stock\n- Sales/Usage\n- Restocking\n- Waste/Spoilage\n\nThis action CANNOT be undone. Are you absolutely sure you want to proceed?')) {
+    if (
+      !confirm(
+        '⚠️ WARNING: This will DELETE ALL stock data including:\n\n- Opening Stock\n- Closing Stock\n- Sales/Usage\n- Restocking\n- Waste/Spoilage\n\nThis action CANNOT be undone. Are you absolutely sure you want to proceed?'
+      )
+    ) {
       return
     }
 
     // Double confirmation
-    if (!confirm('This is your last chance. Are you 100% sure you want to delete ALL stock data?')) {
+    if (
+      !confirm('This is your last chance. Are you 100% sure you want to delete ALL stock data?')
+    ) {
       return
     }
 
@@ -113,9 +131,11 @@ function DeleteAllStockDataSection() {
 
       setDeleteMessage({
         type: 'success',
-        text: data.message || 'All stock data deleted successfully. You can now start fresh with opening stock from December 1st.',
+        text:
+          data.message ||
+          'All stock data deleted successfully. You can now start fresh with opening stock from December 1st.',
       })
-      
+
       // Refresh the page after 2 seconds to show empty state
       setTimeout(() => {
         window.location.reload()
@@ -132,10 +152,12 @@ function DeleteAllStockDataSection() {
     <div className="bg-white shadow rounded-lg p-6 mb-6 border-2 border-red-200 hidden">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete All Stock Data</h3>
       <p className="text-sm text-gray-600 mb-4">
-        <strong className="text-red-600">⚠️ DANGER ZONE:</strong> This will permanently delete ALL stock-related data including opening stock, closing stock, sales, restocking, and waste/spoilage records. 
-        This is useful when you want to start completely fresh (e.g., from December 1st).
+        <strong className="text-red-600">⚠️ DANGER ZONE:</strong> This will permanently delete ALL
+        stock-related data including opening stock, closing stock, sales, restocking, and
+        waste/spoilage records. This is useful when you want to start completely fresh (e.g., from
+        December 1st).
       </p>
-      
+
       {deleteMessage && (
         <div
           className={`p-3 rounded mb-4 ${
@@ -155,10 +177,10 @@ function DeleteAllStockDataSection() {
       >
         {deleting ? 'Deleting All Data...' : '⚠️ Delete All Stock Data'}
       </button>
-      
+
       <p className="mt-3 text-xs text-red-600 font-semibold">
-        <strong>⚠️ WARNING:</strong> This action is IRREVERSIBLE. All stock data will be permanently deleted. 
-        Make sure you have a backup if needed.
+        <strong>⚠️ WARNING:</strong> This action is IRREVERSIBLE. All stock data will be permanently
+        deleted. Make sure you have a backup if needed.
       </p>
     </div>
   )
@@ -183,12 +205,18 @@ export default function AdminDashboard() {
       return new Date().toISOString().split('T')[0]
     }
   })
-  const [openingStocks, setOpeningStocks] = useState<(OpeningStock & { item: Item; recorded_by_profile: Profile })[]>([])
-  const [closingStocks, setClosingStocks] = useState<(ClosingStock & { item: Item; recorded_by_profile: Profile })[]>([])
+  const [openingStocks, setOpeningStocks] = useState<
+    (OpeningStock & { item: Item; recorded_by_profile: Profile })[]
+  >([])
+  const [closingStocks, setClosingStocks] = useState<
+    (ClosingStock & { item: Item; recorded_by_profile: Profile })[]
+  >([])
   const [sales, setSales] = useState<(Sale & { item: Item; recorded_by_profile: Profile })[]>([])
   const [loading, setLoading] = useState(false)
   const [userRole, setUserRole] = useState<'admin' | 'superadmin' | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'users' | 'menu' | 'recipes' | 'superadmin'>('overview')
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'items' | 'users' | 'menu' | 'recipes' | 'superadmin'
+  >('overview')
 
   useEffect(() => {
     checkUserRole()
@@ -199,7 +227,9 @@ export default function AdminDashboard() {
   }, [selectedDate, userRole])
 
   const checkUserRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -227,7 +257,9 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
 
       if (openingData) {
-        setOpeningStocks(openingData as (OpeningStock & { item: Item; recorded_by_profile: Profile })[])
+        setOpeningStocks(
+          openingData as (OpeningStock & { item: Item; recorded_by_profile: Profile })[]
+        )
       }
 
       const { data: closingData } = await supabase
@@ -237,7 +269,9 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
 
       if (closingData) {
-        setClosingStocks(closingData as (ClosingStock & { item: Item; recorded_by_profile: Profile })[])
+        setClosingStocks(
+          closingData as (ClosingStock & { item: Item; recorded_by_profile: Profile })[]
+        )
       }
 
       const { data: salesData } = await supabase
@@ -337,7 +371,7 @@ export default function AdminDashboard() {
               type="date"
               value={selectedDate}
               max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => {
+              onChange={e => {
                 const selectedDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (selectedDate > today) {
@@ -370,8 +404,18 @@ export default function AdminDashboard() {
                 </div>
                 {openingStocks.length === 0 ? (
                   <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                      />
                     </svg>
                     <p className="mt-2 text-gray-500">No opening stock recorded for this date</p>
                   </div>
@@ -395,18 +439,22 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {openingStocks.map((stock) => (
+                        {openingStocks.map(stock => (
                           <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {stock.item?.name}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className="font-medium">{stock.quantity}</span> {stock.item?.unit}
+                              <span className="font-medium">{stock.quantity}</span>{' '}
+                              {stock.item?.unit}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email}
+                              {stock.recorded_by_profile?.full_name ||
+                                stock.recorded_by_profile?.email}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{stock.notes || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {stock.notes || '-'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -427,8 +475,18 @@ export default function AdminDashboard() {
                 </div>
                 {closingStocks.length === 0 ? (
                   <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                      />
                     </svg>
                     <p className="mt-2 text-gray-500">No closing stock recorded for this date</p>
                   </div>
@@ -452,18 +510,22 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {closingStocks.map((stock) => (
+                        {closingStocks.map(stock => (
                           <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {stock.item?.name}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <span className="font-medium">{stock.quantity}</span> {stock.item?.unit}
+                              <span className="font-medium">{stock.quantity}</span>{' '}
+                              {stock.item?.unit}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email}
+                              {stock.recorded_by_profile?.full_name ||
+                                stock.recorded_by_profile?.email}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{stock.notes || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {stock.notes || '-'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -484,8 +546,18 @@ export default function AdminDashboard() {
                 </div>
                 {sales.length === 0 ? (
                   <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                      />
                     </svg>
                     <p className="mt-2 text-gray-500">No sales recorded for this date</p>
                   </div>
@@ -509,7 +581,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {sales.map((sale) => (
+                        {sales.map(sale => (
                           <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {sale.item?.name}
@@ -517,9 +589,12 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span className="font-medium">{sale.quantity}</span> {sale.item?.unit}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{sale.description || '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {sale.description || '-'}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {sale.recorded_by_profile?.full_name || sale.recorded_by_profile?.email}
+                              {sale.recorded_by_profile?.full_name ||
+                                sale.recorded_by_profile?.email}
                             </td>
                           </tr>
                         ))}
@@ -540,4 +615,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-

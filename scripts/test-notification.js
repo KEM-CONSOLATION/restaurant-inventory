@@ -1,7 +1,7 @@
 /**
  * Test script to create a notification
  * Run this in browser console or use as a reference for API testing
- * 
+ *
  * Usage:
  * 1. Open browser console on your dashboard
  * 2. Copy and paste this script
@@ -10,7 +10,9 @@
 
 async function createTestNotification() {
   // Get current user ID
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     console.error('No user logged in')
     return
@@ -47,7 +49,7 @@ async function createTestNotification() {
   })
 
   const data = await response.json()
-  
+
   if (response.ok) {
     console.log('✅ Notification created successfully:', data)
     console.log('Check the notification bell in the header!')
@@ -58,4 +60,3 @@ async function createTestNotification() {
 
 // Run the test
 createTestNotification()
-

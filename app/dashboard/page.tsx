@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   return (
     <DashboardLayout user={profile}>
       <div>
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 grid gap-2  place-items-start md:place-items-start md:flex items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
             <p className="mt-2 text-gray-600">Overview of your inventory and sales performance</p>
@@ -69,4 +69,3 @@ export default async function DashboardPage() {
     </DashboardLayout>
   )
 }
-

@@ -4,13 +4,23 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { Item, OpeningStock, ClosingStock, Sale, Profile, Organization } from '@/types/database'
-import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
+import {
+  exportToExcel,
+  exportToPDF,
+  exportToCSV,
+  formatCurrency,
+  formatDate,
+} from '@/lib/export-utils'
 
 export default function HistoryView() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [openingStocks, setOpeningStocks] = useState<(OpeningStock & { item?: Item; recorded_by_profile?: Profile })[]>([])
-  const [closingStocks, setClosingStocks] = useState<(ClosingStock & { item?: Item; recorded_by_profile?: Profile })[]>([])
+  const [openingStocks, setOpeningStocks] = useState<
+    (OpeningStock & { item?: Item; recorded_by_profile?: Profile })[]
+  >([])
+  const [closingStocks, setClosingStocks] = useState<
+    (ClosingStock & { item?: Item; recorded_by_profile?: Profile })[]
+  >([])
   const [sales, setSales] = useState<(Sale & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'opening' | 'closing' | 'sales'>('opening')
@@ -23,14 +33,16 @@ export default function HistoryView() {
 
   const fetchOrganization = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
           .eq('id', user.id)
           .single()
-        
+
         if (profile?.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
@@ -49,7 +61,9 @@ export default function HistoryView() {
     setLoading(true)
     try {
       // Get user's organization_id for filtering
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       let organizationId: string | null = null
       if (user) {
         const { data: profile } = await supabase
@@ -83,15 +97,17 @@ export default function HistoryView() {
         .lte('date', endDate)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-      
+
       if (organizationId) {
         openingQuery = openingQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: openingData } = await openingQuery
 
       if (openingData) {
-        setOpeningStocks(openingData as (OpeningStock & { item?: Item; recorded_by_profile?: Profile })[])
+        setOpeningStocks(
+          openingData as (OpeningStock & { item?: Item; recorded_by_profile?: Profile })[]
+        )
       }
 
       // Fetch closing stock for date range
@@ -102,15 +118,17 @@ export default function HistoryView() {
         .lte('date', endDate)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-      
+
       if (organizationId) {
         closingQuery = closingQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: closingData } = await closingQuery
 
       if (closingData) {
-        setClosingStocks(closingData as (ClosingStock & { item?: Item; recorded_by_profile?: Profile })[])
+        setClosingStocks(
+          closingData as (ClosingStock & { item?: Item; recorded_by_profile?: Profile })[]
+        )
       }
 
       // Fetch sales for date range
@@ -121,11 +139,11 @@ export default function HistoryView() {
         .lte('date', endDate)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-      
+
       if (organizationId) {
         salesQuery = salesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: salesData } = await salesQuery
 
       if (salesData) {
@@ -143,9 +161,10 @@ export default function HistoryView() {
   }
 
   const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
-    const dateRangeLabel = startDate === endDate 
-      ? formatDate(startDate)
-      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+    const dateRangeLabel =
+      startDate === endDate
+        ? formatDate(startDate)
+        : `${formatDate(startDate)} - ${formatDate(endDate)}`
 
     if (activeTab === 'opening') {
       const headers = ['Date', 'Item', 'Quantity', 'Unit', 'Recorded By']
@@ -196,7 +215,16 @@ export default function HistoryView() {
         exportToCSV(data, headers, options)
       }
     } else if (activeTab === 'sales') {
-      const headers = ['Date', 'Item', 'Quantity', 'Unit', 'Price/Unit', 'Total Price', 'Description', 'Recorded By']
+      const headers = [
+        'Date',
+        'Item',
+        'Quantity',
+        'Unit',
+        'Price/Unit',
+        'Total Price',
+        'Description',
+        'Recorded By',
+      ]
       const data = sales.map(sale => [
         formatDate(sale.date),
         sale.item?.name || '-',
@@ -209,16 +237,7 @@ export default function HistoryView() {
       ])
 
       // Add summary row
-      const summaryRow = [
-        '',
-        'TOTAL',
-        '',
-        '',
-        '',
-        formatCurrency(calculateTotalSales()),
-        '',
-        '',
-      ]
+      const summaryRow = ['', 'TOTAL', '', '', '', formatCurrency(calculateTotalSales()), '', '']
       const exportData = [...data, [], summaryRow]
 
       const options = {
@@ -258,7 +277,12 @@ export default function HistoryView() {
                 title="Export to Excel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 Excel
               </button>
@@ -268,7 +292,12 @@ export default function HistoryView() {
                 title="Export to PDF"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
                 </svg>
                 PDF
               </button>
@@ -278,7 +307,12 @@ export default function HistoryView() {
                 title="Export to CSV"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 CSV
               </button>
@@ -295,7 +329,7 @@ export default function HistoryView() {
               type="date"
               value={startDate}
               max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => {
+              onChange={e => {
                 const newStartDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newStartDate > today) {
@@ -321,7 +355,7 @@ export default function HistoryView() {
               value={endDate}
               max={format(new Date(), 'yyyy-MM-dd')}
               min={startDate}
-              onChange={(e) => {
+              onChange={e => {
                 const newEndDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newEndDate > today) {
@@ -353,7 +387,12 @@ export default function HistoryView() {
             title="Reset to Today"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Reset to Today
           </button>
@@ -416,14 +455,22 @@ export default function HistoryView() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Item
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Quantity
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Recorded By
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {openingStocks.map((stock) => (
+                      {openingStocks.map(stock => (
                         <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {format(new Date(stock.date), 'MMM dd, yyyy')}
@@ -435,7 +482,8 @@ export default function HistoryView() {
                             {stock.quantity} {stock.item?.unit || ''}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email}
+                            {stock.recorded_by_profile?.full_name ||
+                              stock.recorded_by_profile?.email}
                           </td>
                         </tr>
                       ))}
@@ -458,14 +506,22 @@ export default function HistoryView() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Item
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Quantity
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Recorded By
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {closingStocks.map((stock) => (
+                      {closingStocks.map(stock => (
                         <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {format(new Date(stock.date), 'MMM dd, yyyy')}
@@ -477,7 +533,8 @@ export default function HistoryView() {
                             {stock.quantity} {stock.item?.unit || ''}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {stock.recorded_by_profile?.full_name || stock.recorded_by_profile?.email}
+                            {stock.recorded_by_profile?.full_name ||
+                              stock.recorded_by_profile?.email}
                           </td>
                         </tr>
                       ))}
@@ -496,7 +553,9 @@ export default function HistoryView() {
                 </h2>
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Total Sales</p>
-                  <p className="text-2xl font-bold text-indigo-600">₦{calculateTotalSales().toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-indigo-600">
+                    ₦{calculateTotalSales().toFixed(2)}
+                  </p>
                 </div>
               </div>
               {sales.length === 0 ? (
@@ -506,17 +565,31 @@ export default function HistoryView() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Item
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Quantity
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Price/Unit
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Total Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Description
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Recorded By
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {sales.map((sale) => (
+                      {sales.map(sale => (
                         <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {format(new Date(sale.date), 'MMM dd, yyyy')}
@@ -533,7 +606,9 @@ export default function HistoryView() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             ₦{sale.total_price.toFixed(2)}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">{sale.description || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {sale.description || '-'}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {sale.recorded_by_profile?.full_name || sale.recorded_by_profile?.email}
                           </td>
@@ -550,4 +625,3 @@ export default function HistoryView() {
     </div>
   )
 }
-

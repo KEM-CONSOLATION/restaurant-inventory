@@ -13,11 +13,7 @@ export default async function AdminPage() {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
 
   if (!profile) {
     await supabase.auth.signOut()
@@ -36,4 +32,3 @@ export default async function AdminPage() {
     </DashboardLayout>
   )
 }
-

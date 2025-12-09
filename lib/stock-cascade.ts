@@ -3,10 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 /**
  * Recalculates closing stock for a given date (only if not manually entered)
  */
-export async function recalculateClosingStock(
-  date: string,
-  user_id: string
-) {
+export async function recalculateClosingStock(date: string, user_id: string) {
   // Normalize date format to YYYY-MM-DD (handle any format variations)
   if (date.includes('T')) {
     date = date.split('T')[0]
@@ -27,11 +24,13 @@ export async function recalculateClosingStock(
   // Access environment variables inside the function to avoid issues when imported in client components
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  
+
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Supabase configuration is missing. This function must be called from a server context.')
+    throw new Error(
+      'Supabase configuration is missing. This function must be called from a server context.'
+    )
   }
-  
+
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -46,19 +45,16 @@ export async function recalculateClosingStock(
       .select('organization_id')
       .eq('id', user_id)
       .single()
-    
+
     const organizationId = profile?.organization_id || null
 
     // Get all items for this organization
-    let itemsQuery = supabaseAdmin
-      .from('items')
-      .select('*')
-      .order('name')
-    
+    let itemsQuery = supabaseAdmin.from('items').select('*').order('name')
+
     if (organizationId) {
       itemsQuery = itemsQuery.eq('organization_id', organizationId)
     }
-    
+
     const { data: items } = await itemsQuery
 
     if (!items) return
@@ -68,16 +64,16 @@ export async function recalculateClosingStock(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       throw new Error('Invalid date format. Expected YYYY-MM-DD')
     }
-    
+
     const [year, month, day] = dateStr.split('-').map(Number)
     const dateObj = new Date(year, month - 1, day) // month is 0-indexed, use local time
     if (isNaN(dateObj.getTime())) {
       throw new Error('Invalid date')
     }
-    
+
     // Subtract one day
     dateObj.setDate(dateObj.getDate() - 1)
-    
+
     // Format back to YYYY-MM-DD without timezone conversion
     const prevYear = dateObj.getFullYear()
     const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
@@ -107,10 +103,7 @@ export async function recalculateClosingStock(
     const { data: todayOpeningStock } = await todayOpeningStockQuery
 
     // Get today's sales
-    let todaySalesQuery = supabaseAdmin
-      .from('sales')
-      .select('item_id, quantity')
-      .eq('date', date)
+    let todaySalesQuery = supabaseAdmin.from('sales').select('item_id, quantity').eq('date', date)
     todaySalesQuery = addOrgFilter(todaySalesQuery)
     const { data: todaySales } = await todaySalesQuery
 
@@ -131,53 +124,60 @@ export async function recalculateClosingStock(
     const { data: todayWasteSpoilage } = await todayWasteSpoilageQuery
 
     // Filter items by organization_id if specified
-    const filteredItems = organizationId 
+    const filteredItems = organizationId
       ? items.filter(item => item.organization_id === organizationId)
       : items
 
     // Calculate and save closing stock for each item
     // This ensures consistency: Closing Stock = Opening + Restocking - Sales - Waste/Spoilage
-    const closingStockRecords = filteredItems.map((item) => {
-            // Determine opening stock
-            // Quantities only come from opening/closing stock - if not present, use zero
-            const todayOpening = todayOpeningStock?.find((os) => os.item_id === item.id)
-            const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
-            const openingStock = todayOpening
-              ? parseFloat(todayOpening.quantity.toString())
-              : prevClosing
-              ? parseFloat(prevClosing.quantity.toString())
-              : 0 // Use zero if no opening/closing stock exists
+    const closingStockRecords = filteredItems.map(item => {
+      // Determine opening stock
+      // Quantities only come from opening/closing stock - if not present, use zero
+      const todayOpening = todayOpeningStock?.find(os => os.item_id === item.id)
+      const prevClosing = prevClosingStock?.find(cs => cs.item_id === item.id)
+      const openingStock = todayOpening
+        ? parseFloat(todayOpening.quantity.toString())
+        : prevClosing
+          ? parseFloat(prevClosing.quantity.toString())
+          : 0 // Use zero if no opening/closing stock exists
 
-        // Calculate totals
-        const itemSales = todaySales?.filter((s) => s.item_id === item.id) || []
-        const totalSales = itemSales.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
+      // Calculate totals
+      const itemSales = todaySales?.filter(s => s.item_id === item.id) || []
+      const totalSales = itemSales.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
 
-        const itemRestocking = todayRestocking?.filter((r) => r.item_id === item.id) || []
-        const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+      const itemRestocking = todayRestocking?.filter(r => r.item_id === item.id) || []
+      const totalRestocking = itemRestocking.reduce(
+        (sum, r) => sum + parseFloat(r.quantity.toString()),
+        0
+      )
 
-        const itemWasteSpoilage = todayWasteSpoilage?.filter((w) => w.item_id === item.id) || []
-        const totalWasteSpoilage = itemWasteSpoilage.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0)
+      const itemWasteSpoilage = todayWasteSpoilage?.filter(w => w.item_id === item.id) || []
+      const totalWasteSpoilage = itemWasteSpoilage.reduce(
+        (sum, w) => sum + parseFloat(w.quantity.toString()),
+        0
+      )
 
-        // Calculate closing stock
-        const closingStock = Math.max(0, openingStock + totalRestocking - totalSales - totalWasteSpoilage)
+      // Calculate closing stock
+      const closingStock = Math.max(
+        0,
+        openingStock + totalRestocking - totalSales - totalWasteSpoilage
+      )
 
-        return {
-          item_id: item.id,
-          quantity: closingStock,
-          date,
-          recorded_by: user_id,
-          organization_id: organizationId,
-          notes: `Auto-calculated: Opening (${openingStock}) + Restocking (${totalRestocking}) - Sales (${totalSales}) - Waste/Spoilage (${totalWasteSpoilage})`,
-        }
-      })
+      return {
+        item_id: item.id,
+        quantity: closingStock,
+        date,
+        recorded_by: user_id,
+        organization_id: organizationId,
+        notes: `Auto-calculated: Opening (${openingStock}) + Restocking (${totalRestocking}) - Sales (${totalSales}) - Waste/Spoilage (${totalWasteSpoilage})`,
+      }
+    })
 
     if (closingStockRecords.length > 0) {
       // Upsert closing stock records
-      await supabaseAdmin
-        .from('closing_stock')
-        .upsert(closingStockRecords, {
-          onConflict: 'item_id,date,organization_id',
-        })
+      await supabaseAdmin.from('closing_stock').upsert(closingStockRecords, {
+        onConflict: 'item_id,date,organization_id',
+      })
     }
   } catch (error) {
     console.error('Failed to recalculate closing stock:', error)
@@ -210,11 +210,13 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
   // Access environment variables inside the function to avoid issues when imported in client components
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  
+
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Supabase configuration is missing. This function must be called from a server context.')
+    throw new Error(
+      'Supabase configuration is missing. This function must be called from a server context.'
+    )
   }
-  
+
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -228,7 +230,7 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
     .select('organization_id')
     .eq('id', user_id)
     .single()
-  
+
   const organizationId = profile?.organization_id || null
 
   // Parse start_date using local time to avoid timezone issues
@@ -236,13 +238,13 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateStr)) {
     throw new Error('Invalid start_date format. Expected YYYY-MM-DD')
   }
-  
+
   const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number)
   let currentDate = new Date(startYear, startMonth - 1, startDay) // month is 0-indexed, use local time
   if (isNaN(currentDate.getTime())) {
     throw new Error('Invalid start_date')
   }
-  
+
   const updates: string[] = []
 
   // Format date to YYYY-MM-DD for comparison (using local time)
@@ -256,7 +258,7 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
   // Cascade updates from start_date forward until today
   while (formatDateLocal(currentDate) < today) {
     const currentDateStr = formatDateLocal(currentDate)
-    
+
     // Calculate next date
     const nextDate = new Date(currentDate)
     nextDate.setDate(nextDate.getDate() + 1)
@@ -293,15 +295,12 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
     // Note: We'll fetch existing opening stock with prices below to preserve them
 
     // Get all items for this organization
-    let itemsQuery = supabaseAdmin
-      .from('items')
-      .select('*')
-      .order('name')
-    
+    let itemsQuery = supabaseAdmin.from('items').select('*').order('name')
+
     if (organizationId) {
       itemsQuery = itemsQuery.eq('organization_id', organizationId)
     }
-    
+
     const { data: items } = await itemsQuery
 
     if (!items) {
@@ -315,31 +314,34 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
       .select('item_id, quantity, cost_price, selling_price')
       .eq('date', nextDateStr)
     existingNextOpeningStockWithPricesQuery = addOrgFilter(existingNextOpeningStockWithPricesQuery)
-    const { data: existingNextOpeningStockWithPrices } = await existingNextOpeningStockWithPricesQuery
+    const { data: existingNextOpeningStockWithPrices } =
+      await existingNextOpeningStockWithPricesQuery
 
     // Update/create opening stock for next date based on current date's closing stock
     // ALWAYS update to match previous day's closing stock for consistency
     const openingStockToUpsert = items
-      .filter((item) => {
-        const hasClosingStock = closingStock.some((cs) => cs.item_id === item.id)
+      .filter(item => {
+        const hasClosingStock = closingStock.some(cs => cs.item_id === item.id)
         return hasClosingStock
       })
-      .map((item) => {
-        const closing = closingStock.find((cs) => cs.item_id === item.id)
-        const currentOpening = currentOpeningStock?.find((os) => os.item_id === item.id)
-        const existingOpening = existingNextOpeningStockWithPrices?.find((os) => os.item_id === item.id)
-        
+      .map(item => {
+        const closing = closingStock.find(cs => cs.item_id === item.id)
+        const currentOpening = currentOpeningStock?.find(os => os.item_id === item.id)
+        const existingOpening = existingNextOpeningStockWithPrices?.find(
+          os => os.item_id === item.id
+        )
+
         // ALWAYS use closing stock quantity as opening stock for next day
         // This ensures consistency: closing stock of one day = opening stock of next day
         // If no closing stock, use zero (quantities only come from opening/closing stock)
         const openingQty = closing ? parseFloat(closing.quantity.toString()) : 0
-        
+
         // CRITICAL: Preserve existing prices if opening stock already exists
         // Only set prices when creating NEW records, using current date's opening stock prices
         // This prevents restocking price changes from affecting past dates
         let costPrice: number | null | undefined
         let sellingPrice: number | null | undefined
-        
+
         if (existingOpening) {
           // Preserve existing prices - never update prices of existing opening stock
           costPrice = existingOpening.cost_price
@@ -381,8 +383,10 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
         })
 
       if (!upsertError) {
-        updates.push(`Updated opening stock for ${nextDateStr} from ${currentDateStr} closing stock`)
-        
+        updates.push(
+          `Updated opening stock for ${nextDateStr} from ${currentDateStr} closing stock`
+        )
+
         // Recalculate closing stock for next date to maintain chain
         await recalculateClosingStock(nextDateStr, user_id)
       }
@@ -394,4 +398,3 @@ export async function cascadeUpdateFromDate(start_date: string, user_id: string)
 
   return { updates }
 }
-

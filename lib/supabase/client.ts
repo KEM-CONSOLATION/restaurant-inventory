@@ -21,4 +21,3 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
   },
 })
-

@@ -7,7 +7,9 @@ import { format } from 'date-fns'
 
 export default function WasteSpoilageForm() {
   const [items, setItems] = useState<Item[]>([])
-  const [wasteSpoilage, setWasteSpoilage] = useState<(WasteSpoilage & { item?: Item; recorded_by_profile?: Profile })[]>([])
+  const [wasteSpoilage, setWasteSpoilage] = useState<
+    (WasteSpoilage & { item?: Item; recorded_by_profile?: Profile })[]
+  >([])
   const [selectedItem, setSelectedItem] = useState('')
   const [quantity, setQuantity] = useState('')
   const [type, setType] = useState<'waste' | 'spoilage'>('waste')
@@ -41,7 +43,9 @@ export default function WasteSpoilageForm() {
   }, [date])
 
   const checkUserRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -64,11 +68,13 @@ export default function WasteSpoilageForm() {
   const fetchWasteSpoilage = async () => {
     const { data, error } = await supabase
       .from('waste_spoilage')
-      .select(`
+      .select(
+        `
         *,
         item:items(*),
         recorded_by_profile:profiles(*)
-      `)
+      `
+      )
       .eq('date', date)
       .order('created_at', { ascending: false })
 
@@ -93,7 +99,7 @@ export default function WasteSpoilageForm() {
       if (date !== today) {
         setMessage({
           type: 'error',
-          text: 'Waste/spoilage can only be recorded for today\'s date to avoid confusion.',
+          text: "Waste/spoilage can only be recorded for today's date to avoid confusion.",
         })
         setDate(today)
         setLoading(false)
@@ -147,7 +153,8 @@ export default function WasteSpoilageForm() {
         await fetchWasteSpoilage()
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to record waste/spoilage'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to record waste/spoilage'
       setMessage({ type: 'error', text: errorMessage })
     } finally {
       setLoading(false)
@@ -193,7 +200,8 @@ export default function WasteSpoilageForm() {
       setMessage({ type: 'success', text: 'Waste/spoilage record deleted successfully!' })
       await fetchWasteSpoilage()
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete waste/spoilage record'
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to delete waste/spoilage record'
       setMessage({ type: 'error', text: errorMessage })
     } finally {
       setLoading(false)
@@ -210,7 +218,7 @@ export default function WasteSpoilageForm() {
     setDate(today)
   }
 
-  const selectedItemData = items.find((item) => item.id === selectedItem)
+  const selectedItemData = items.find(item => item.id === selectedItem)
 
   return (
     <div>
@@ -239,12 +247,14 @@ export default function WasteSpoilageForm() {
               id="date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={e => setDate(e.target.value)}
               required
               disabled={true}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-not-allowed bg-gray-100"
             />
-            <p className="mt-1 text-xs text-gray-500">Waste/spoilage can only be recorded for today (Today only)</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Waste/spoilage can only be recorded for today (Today only)
+            </p>
           </div>
 
           <div>
@@ -254,12 +264,12 @@ export default function WasteSpoilageForm() {
             <select
               id="item"
               value={selectedItem}
-              onChange={(e) => setSelectedItem(e.target.value)}
+              onChange={e => setSelectedItem(e.target.value)}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
             >
               <option value="">Select an item</option>
-              {items.map((item) => (
+              {items.map(item => (
                 <option key={item.id} value={item.id}>
                   {item.name} ({item.unit})
                 </option>
@@ -274,7 +284,7 @@ export default function WasteSpoilageForm() {
             <select
               id="type"
               value={type}
-              onChange={(e) => setType(e.target.value as 'waste' | 'spoilage')}
+              onChange={e => setType(e.target.value as 'waste' | 'spoilage')}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
             >
@@ -294,13 +304,15 @@ export default function WasteSpoilageForm() {
                 step="0.01"
                 min="0.01"
                 value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                onChange={e => setQuantity(e.target.value)}
                 required
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="0.00"
               />
               {selectedItemData && (
-                <span className="text-sm text-gray-500 whitespace-nowrap">{selectedItemData.unit}</span>
+                <span className="text-sm text-gray-500 whitespace-nowrap">
+                  {selectedItemData.unit}
+                </span>
               )}
             </div>
           </div>
@@ -313,7 +325,7 @@ export default function WasteSpoilageForm() {
               id="reason"
               type="text"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={e => setReason(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
               placeholder="e.g., Expired, Damaged, Overcooked"
             />
@@ -326,7 +338,7 @@ export default function WasteSpoilageForm() {
             <textarea
               id="notes"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={e => setNotes(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
               placeholder="Additional details..."
@@ -389,7 +401,7 @@ export default function WasteSpoilageForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {wasteSpoilage.map((record) => (
+                {wasteSpoilage.map(record => (
                   <tr key={record.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {record.item?.name || 'Unknown Item'}
@@ -410,9 +422,12 @@ export default function WasteSpoilageForm() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{record.reason || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {record.recorded_by_profile?.full_name || record.recorded_by_profile?.email || 'Unknown'}
+                      {record.recorded_by_profile?.full_name ||
+                        record.recorded_by_profile?.email ||
+                        'Unknown'}
                     </td>
-                    {(userRole === 'admin' || (userRole !== 'superadmin' && record.date === today)) && (
+                    {(userRole === 'admin' ||
+                      (userRole !== 'superadmin' && record.date === today)) && (
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         {record.date === today && (
                           <button
@@ -442,4 +457,3 @@ export default function WasteSpoilageForm() {
     </div>
   )
 }
-

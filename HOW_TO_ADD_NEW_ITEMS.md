@@ -1,15 +1,18 @@
 # How to Add New Items to the System
 
 ## Overview
+
 This guide explains the proper way to add new items to your inventory system. The system automatically handles organization assignment, so you just need to follow these steps.
 
 ## Step-by-Step Guide
 
 ### Step 1: Navigate to Item Management
+
 1. Go to **Management** in the sidebar (Admin only)
 2. Click on **Items** tab (if not already selected)
 
 ### Step 2: Create the New Item
+
 1. Click the **"Add New Item"** or **"Create Item"** button
 2. Fill in the form with the following information:
 
@@ -27,6 +30,7 @@ This guide explains the proper way to add new items to your inventory system. Th
 3. Click **"Save"** or **"Create Item"**
 
 ### Step 3: Restock the Item (IMPORTANT!)
+
 After creating the item, you **MUST** restock it to make it available for sales:
 
 1. Go to **Restocking** in the sidebar
@@ -37,11 +41,13 @@ After creating the item, you **MUST** restock it to make it available for sales:
 6. Click **"Record Restocking"**
 
 **What happens automatically:**
+
 - The system will create an opening stock record (with quantity 0) for that date
 - The restocking quantity will be added
 - The item will now appear in Sales/Usage with the correct available stock
 
 ### Step 4: Verify the Item
+
 1. Go to **Sales/Usage** in the sidebar
 2. Check that your new item appears in the dropdown
 3. Verify the available stock shows correctly
@@ -49,11 +55,13 @@ After creating the item, you **MUST** restock it to make it available for sales:
 ## Important Notes
 
 ### Organization Assignment
+
 - **Automatic**: The system automatically assigns items to your organization
 - **No manual setup needed**: The database trigger handles this automatically
 - **Multi-tenant safe**: Each organization only sees their own items
 
 ### Stock Management
+
 - **Initial Quantity**: The "Initial Quantity" field is only for setup. Actual stock is managed through:
   - **Opening Stock**: Stock at the start of each day
   - **Restocking**: Additional stock added during the day
@@ -61,6 +69,7 @@ After creating the item, you **MUST** restock it to make it available for sales:
   - **Closing Stock**: Stock at the end of the day
 
 ### Price Management
+
 - **Default Prices**: Set during item creation or restocking
 - **Price Updates**: Update prices when restocking (weighted average is calculated)
 - **Daily Prices**: Opening stock can have different prices per day for historical accuracy
@@ -68,17 +77,20 @@ After creating the item, you **MUST** restock it to make it available for sales:
 ## Troubleshooting
 
 ### Item Not Showing in Sales/Usage?
+
 1. **Check if item was restocked**: New items must be restocked to appear
 2. **Check the date**: Make sure you're looking at the correct date
 3. **Click "Refresh Items List"**: Use the refresh button below the item dropdown
 4. **Check browser console**: Open Developer Tools (F12) and check for errors
 
 ### Item Shows 0 Available Stock?
+
 1. **Restock the item**: Go to Restocking and add quantity
 2. **Check opening stock**: Go to Opening Stock page and verify the record exists
 3. **Check date**: Make sure you're looking at the correct date
 
 ### Organization Issues?
+
 - If items aren't showing, check that you're logged in with the correct organization
 - Superadmins can see all items, but regular admins only see their organization's items
 
@@ -100,8 +112,8 @@ After creating the item, you **MUST** restock it to make it available for sales:
 ## Need Help?
 
 If you encounter issues:
+
 1. Check the browser console for error messages
 2. Verify your organization is correctly assigned
 3. Ensure the database triggers are running (contact support if needed)
 4. Try refreshing the page and clearing browser cache
-

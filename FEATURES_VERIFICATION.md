@@ -3,8 +3,9 @@
 ## ✅ Implementation Status
 
 ### 1. Export & Reporting ✅ COMPLETE
+
 - **Status**: Fully implemented and tested
-- **Location**: 
+- **Location**:
   - `/dashboard/profit-loss` - Export buttons added
   - `/dashboard/expenses` - Export buttons added
   - `/dashboard/reports` - Already had exports (enhanced)
@@ -16,6 +17,7 @@
   - Currency formatting (₦)
 
 ### 2. Notifications & Alerts ✅ COMPLETE
+
 - **Status**: Fully implemented
 - **Location**: Header (top-right, notification bell icon)
 - **Features**:
@@ -28,6 +30,7 @@
 - **Integration**: ✅ LowStockAlerts automatically creates notifications
 
 ### 3. Inventory Valuation ✅ COMPLETE
+
 - **Status**: Fully implemented
 - **Location**: `/dashboard/inventory-valuation` (new page)
 - **Features**:
@@ -51,11 +54,18 @@
    - If not visible, check browser console
 
 2. **Create Test Notification**:
+
    ```javascript
    // Run in browser console on dashboard
-   const { data: { user } } = await supabase.auth.getUser()
-   const { data: profile } = await supabase.from('profiles').select('organization_id').eq('id', user.id).single()
-   
+   const {
+     data: { user },
+   } = await supabase.auth.getUser()
+   const { data: profile } = await supabase
+     .from('profiles')
+     .select('organization_id')
+     .eq('id', user.id)
+     .single()
+
    fetch('/api/notifications/create', {
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
@@ -65,10 +75,13 @@
        type: 'low_stock',
        title: 'Test Notification',
        message: 'Testing notification system',
-       action_url: '/dashboard/restocking'
-     })
-   }).then(r => r.json()).then(console.log)
+       action_url: '/dashboard/restocking',
+     }),
+   })
+     .then(r => r.json())
+     .then(console.log)
    ```
+
    - Click bell icon
    - Should see notification in dropdown
 
@@ -90,11 +103,13 @@
 ### Notification Bell Not Showing
 
 **Check:**
+
 1. User role is NOT 'superadmin' (superadmins don't see notifications)
 2. Browser console for errors
 3. Database table exists (run migration if needed)
 
 **Fix:**
+
 ```sql
 -- Check if table exists
 SELECT * FROM notifications LIMIT 1;
@@ -108,6 +123,7 @@ SELECT * FROM notifications LIMIT 1;
 **Error in console**: `relation "notifications" does not exist`
 
 **Fix:**
+
 1. Go to Supabase Dashboard → SQL Editor
 2. Copy and paste `supabase/add_notifications_table.sql`
 3. Click Run
@@ -116,11 +132,13 @@ SELECT * FROM notifications LIMIT 1;
 ### Export Buttons Not Working
 
 **Check:**
+
 1. Browser download settings
 2. Pop-up blocker
 3. Browser console for errors
 
 **Fix:**
+
 - Check browser's download folder
 - Try different browser
 - Check if files are being blocked
@@ -128,11 +146,13 @@ SELECT * FROM notifications LIMIT 1;
 ### Inventory Valuation Shows Zero
 
 **Check:**
+
 1. Opening stock exists for selected date
 2. Items have `cost_price` and `selling_price` set
 3. `organization_id` is set on all records
 
 **Fix:**
+
 - Select a date with actual stock data
 - Verify items have prices set
 - Check browser console for errors
@@ -179,6 +199,7 @@ You'll know everything works when:
    - Location: Supabase Dashboard → SQL Editor
 
 2. **Enable Replication** (for real-time updates):
+
    ```sql
    ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
    ```
@@ -194,5 +215,4 @@ You'll know everything works when:
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

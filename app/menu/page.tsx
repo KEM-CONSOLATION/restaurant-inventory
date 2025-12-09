@@ -3,7 +3,7 @@ import MenuDisplay from '@/components/MenuDisplay'
 
 export default async function MenuPage() {
   const supabase = await createClient()
-  
+
   // Fetch categories (allow inactive for debugging)
   const { data: categories, error: catError } = await supabase
     .from('menu_categories')
@@ -20,11 +20,5 @@ export default async function MenuPage() {
   const activeCategories = categories?.filter(cat => cat.is_active) || []
   const availableItems = items?.filter(item => item.is_available) || []
 
-  return (
-    <MenuDisplay 
-      categories={activeCategories} 
-      items={availableItems} 
-    />
-  )
+  return <MenuDisplay categories={activeCategories} items={availableItems} />
 }
-

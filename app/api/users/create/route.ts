@@ -25,17 +25,17 @@ export async function POST(request: NextRequest) {
 
     // Superadmins can create users for any organization, regular admins need their own org
     if (profile.role !== 'superadmin' && !profile.organization_id) {
-      return NextResponse.json({ error: 'You must belong to an organization to create users' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'You must belong to an organization to create users' },
+        { status: 400 }
+      )
     }
 
     const body = await request.json()
     const { email, password, fullName, role, organization_id } = body
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
     }
 
     // Determine organization_id: superadmin can specify, regular admin uses their own
@@ -60,16 +60,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -92,7 +88,7 @@ export async function POST(request: NextRequest) {
 
       while (!profileCreated && retries < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 500))
-        
+
         const { data: existingProfile } = await supabaseAdmin
           .from('profiles')
           .select('id, role')
@@ -115,15 +111,13 @@ export async function POST(request: NextRequest) {
           }
           profileCreated = true
         } else {
-          const { error: insertError } = await supabaseAdmin
-            .from('profiles')
-            .insert({
-              id: newUser.user.id,
-              email: newUser.user.email || email,
-              full_name: fullName || null,
-              role: (role as 'admin' | 'staff') || 'staff',
-              organization_id: targetOrganizationId,
-            })
+          const { error: insertError } = await supabaseAdmin.from('profiles').insert({
+            id: newUser.user.id,
+            email: newUser.user.email || email,
+            full_name: fullName || null,
+            role: (role as 'admin' | 'staff') || 'staff',
+            organization_id: targetOrganizationId,
+          })
 
           if (!insertError) {
             profileCreated = true
@@ -133,14 +127,14 @@ export async function POST(request: NextRequest) {
               .select('id, role')
               .eq('id', newUser.user.id)
               .single()
-            
+
             if (conflictProfile) {
               if (conflictProfile.role !== role) {
                 const { error: updateError } = await supabaseAdmin
                   .from('profiles')
                   .update({ role: (role as 'admin' | 'staff') || 'staff' })
                   .eq('id', newUser.user.id)
-                
+
                 if (!updateError) {
                   profileCreated = true
                 }
@@ -160,7 +154,10 @@ export async function POST(request: NextRequest) {
 
       if (!profileCreated) {
         return NextResponse.json(
-          { error: 'User created but profile could not be verified. Please try refreshing the user list.' },
+          {
+            error:
+              'User created but profile could not be verified. Please try refreshing the user list.',
+          },
           { status: 500 }
         )
       }
@@ -175,10 +172,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to create user'
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

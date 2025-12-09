@@ -29,7 +29,7 @@ export default function ItemManagement() {
     return name
       .toLowerCase()
       .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   }
 
@@ -70,7 +70,9 @@ export default function ItemManagement() {
         setMessage({ type: 'success', text: 'Item updated successfully!' })
       } else {
         // Get user's organization_id to ensure proper assignment
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         if (!user) throw new Error('Not authenticated')
 
         const { data: profile } = await supabase
@@ -102,7 +104,11 @@ export default function ItemManagement() {
           itemData.organization_id = profile.organization_id
         }
 
-        const { data: insertedItem, error } = await supabase.from('items').insert(itemData).select().single()
+        const { data: insertedItem, error } = await supabase
+          .from('items')
+          .insert(itemData)
+          .select()
+          .single()
 
         if (error) throw error
 
@@ -110,7 +116,7 @@ export default function ItemManagement() {
         const initialQuantity = parseInt(formData.quantity, 10) || 0
         if (initialQuantity > 0 && insertedItem) {
           const today = new Date().toISOString().split('T')[0]
-          
+
           // Create opening stock record
           const openingStockData = {
             item_id: insertedItem.id,
@@ -131,25 +137,33 @@ export default function ItemManagement() {
 
           if (openingStockError) {
             console.error('Failed to create opening stock:', openingStockError)
-            setMessage({ 
-              type: 'success', 
-              text: 'Item created successfully, but failed to create opening stock. Please add opening stock manually.' 
+            setMessage({
+              type: 'success',
+              text: 'Item created successfully, but failed to create opening stock. Please add opening stock manually.',
             })
           } else {
-            setMessage({ 
-              type: 'success', 
-              text: `Item created successfully! Opening stock of ${initialQuantity} ${formData.unit} has been automatically created for today.` 
+            setMessage({
+              type: 'success',
+              text: `Item created successfully! Opening stock of ${initialQuantity} ${formData.unit} has been automatically created for today.`,
             })
           }
         } else {
-          setMessage({ 
-            type: 'success', 
-            text: 'Item created successfully! Add opening stock or restock to make it available for sales.' 
+          setMessage({
+            type: 'success',
+            text: 'Item created successfully! Add opening stock or restock to make it available for sales.',
           })
         }
       }
 
-      setFormData({ name: '', unit: 'pieces', quantity: '', low_stock_threshold: '10', cost_price: '', selling_price: '', description: '' })
+      setFormData({
+        name: '',
+        unit: 'pieces',
+        quantity: '',
+        low_stock_threshold: '10',
+        cost_price: '',
+        selling_price: '',
+        description: '',
+      })
       setEditingItem(null)
       setShowForm(false)
       fetchItems()
@@ -177,11 +191,7 @@ export default function ItemManagement() {
 
   const handleDelete = async (id: string) => {
     // Check if item has any sales records
-    const { data: salesData } = await supabase
-      .from('sales')
-      .select('id')
-      .eq('item_id', id)
-      .limit(1)
+    const { data: salesData } = await supabase.from('sales').select('id').eq('item_id', id).limit(1)
 
     const { data: openingStockData } = await supabase
       .from('opening_stock')
@@ -195,14 +205,15 @@ export default function ItemManagement() {
       .eq('item_id', id)
       .limit(1)
 
-    const hasRecords = (salesData && salesData.length > 0) || 
-                      (openingStockData && openingStockData.length > 0) || 
-                      (closingStockData && closingStockData.length > 0)
+    const hasRecords =
+      (salesData && salesData.length > 0) ||
+      (openingStockData && openingStockData.length > 0) ||
+      (closingStockData && closingStockData.length > 0)
 
     if (hasRecords) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Cannot delete item: This item has sales, opening stock, or closing stock records. To preserve audit history, items with transaction records cannot be deleted.' 
+      setMessage({
+        type: 'error',
+        text: 'Cannot delete item: This item has sales, opening stock, or closing stock records. To preserve audit history, items with transaction records cannot be deleted.',
       })
       return
     }
@@ -213,9 +224,9 @@ export default function ItemManagement() {
     const { error } = await supabase.from('items').delete().eq('id', id)
     if (error) {
       if (error.code === '23503') {
-        setMessage({ 
-          type: 'error', 
-          text: 'Cannot delete item: This item has related records (sales, opening stock, or closing stock). To preserve audit history, items with transaction records cannot be deleted.' 
+        setMessage({
+          type: 'error',
+          text: 'Cannot delete item: This item has related records (sales, opening stock, or closing stock). To preserve audit history, items with transaction records cannot be deleted.',
         })
       } else {
         setMessage({ type: 'error', text: `Failed to delete item: ${error.message}` })
@@ -235,7 +246,15 @@ export default function ItemManagement() {
           onClick={() => {
             setShowForm(!showForm)
             setEditingItem(null)
-            setFormData({ name: '', unit: 'pieces', quantity: '', low_stock_threshold: '10', cost_price: '', selling_price: '', description: '' })
+            setFormData({
+              name: '',
+              unit: 'pieces',
+              quantity: '',
+              low_stock_threshold: '10',
+              cost_price: '',
+              selling_price: '',
+              description: '',
+            })
           }}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 cursor-pointer transition-colors"
         >
@@ -269,7 +288,7 @@ export default function ItemManagement() {
                 id="name"
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="e.g., Rice, Egusi, Fufu"
@@ -283,7 +302,7 @@ export default function ItemManagement() {
               <select
                 id="unit"
                 value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                onChange={e => setFormData({ ...formData, unit: e.target.value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
               >
@@ -299,7 +318,10 @@ export default function ItemManagement() {
             </div>
 
             <div>
-              <label htmlFor="low_stock_threshold" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="low_stock_threshold"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Low Stock Threshold *
               </label>
               <input
@@ -308,7 +330,7 @@ export default function ItemManagement() {
                 step="1"
                 min="0"
                 value={formData.low_stock_threshold}
-                onChange={(e) => setFormData({ ...formData, low_stock_threshold: e.target.value })}
+                onChange={e => setFormData({ ...formData, low_stock_threshold: e.target.value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="10"
@@ -326,22 +348,26 @@ export default function ItemManagement() {
                   step="1"
                   min="0"
                   value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  onChange={e => setFormData({ ...formData, quantity: e.target.value })}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                   placeholder="0"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  <strong>Note:</strong> If you enter a quantity greater than 0, an opening stock record will be automatically created for today's date. 
-                  This makes the item immediately available for sales. You can also leave it as 0 and add opening stock manually later.
+                  <strong>Note:</strong> If you enter a quantity greater than 0, an opening stock
+                  record will be automatically created for today's date. This makes the item
+                  immediately available for sales. You can also leave it as 0 and add opening stock
+                  manually later.
                 </p>
               </div>
             )}
             {editingItem && (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> Item quantities and prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
-                  To add stock or update prices, use the Restocking section instead of editing the item directly.
+                  <strong>Note:</strong> Item quantities and prices are managed through{' '}
+                  <strong>Opening Stock</strong> and <strong>Restocking</strong> features. To add
+                  stock or update prices, use the Restocking section instead of editing the item
+                  directly.
                 </p>
               </div>
             )}
@@ -349,8 +375,14 @@ export default function ItemManagement() {
             {!editingItem && (
               <>
                 <div>
-                  <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">
-                    Default Cost Price (₦) <span className="text-xs text-gray-500 font-normal">(Optional - for initial setup only)</span>
+                  <label
+                    htmlFor="cost_price"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Default Cost Price (₦){' '}
+                    <span className="text-xs text-gray-500 font-normal">
+                      (Optional - for initial setup only)
+                    </span>
                   </label>
                   <input
                     id="cost_price"
@@ -358,19 +390,26 @@ export default function ItemManagement() {
                     step="0.01"
                     min="0"
                     value={formData.cost_price}
-                    onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                    onChange={e => setFormData({ ...formData, cost_price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                     placeholder="0.00"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
-                    This is only used as a default value for new items. Actual prices are tracked per day in the stock system.
+                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong>{' '}
+                    and <strong>Restocking</strong> features. This is only used as a default value
+                    for new items. Actual prices are tracked per day in the stock system.
                   </p>
                 </div>
 
                 <div>
-                  <label htmlFor="selling_price" className="block text-sm font-medium text-gray-700 mb-1">
-                    Default Selling Price (₦) <span className="text-xs text-gray-500 font-normal">(Optional - for initial setup only)</span>
+                  <label
+                    htmlFor="selling_price"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Default Selling Price (₦){' '}
+                    <span className="text-xs text-gray-500 font-normal">
+                      (Optional - for initial setup only)
+                    </span>
                   </label>
                   <input
                     id="selling_price"
@@ -378,13 +417,14 @@ export default function ItemManagement() {
                     step="0.01"
                     min="0"
                     value={formData.selling_price}
-                    onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
+                    onChange={e => setFormData({ ...formData, selling_price: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                     placeholder="0.00"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong> and <strong>Restocking</strong> features. 
-                    This is only used as a default value for new items. Actual prices are tracked per day in the stock system.
+                    <strong>Note:</strong> Prices are managed through <strong>Opening Stock</strong>{' '}
+                    and <strong>Restocking</strong> features. This is only used as a default value
+                    for new items. Actual prices are tracked per day in the stock system.
                   </p>
                 </div>
               </>
@@ -397,7 +437,7 @@ export default function ItemManagement() {
               <textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="Additional details about this item..."
@@ -421,63 +461,64 @@ export default function ItemManagement() {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Unit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Threshold
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {items.length === 0 ? (
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    No items found. Add your first item to get started.
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Unit
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Threshold
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ) : (
-                items.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{item.description || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4 cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:text-red-900 cursor-pointer"
-                      >
-                        Delete
-                      </button>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                      No items found. Add your first item to get started.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  items.map(item => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {item.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.unit}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{item.description || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4 cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-red-600 hover:text-red-900 cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
     </div>
   )
 }
-

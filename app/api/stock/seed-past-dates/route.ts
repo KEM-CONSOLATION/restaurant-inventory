@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
     if (start_date) {
       const dateStr = start_date.split('T')[0]
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        return NextResponse.json({ error: 'Invalid start_date format. Expected YYYY-MM-DD' }, { status: 400 })
+        return NextResponse.json(
+          { error: 'Invalid start_date format. Expected YYYY-MM-DD' },
+          { status: 400 }
+        )
       }
       const [year, month, day] = dateStr.split('-').map(Number)
       startDate = new Date(year, month - 1, day)
@@ -54,13 +57,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (items.length === 0) {
-      return NextResponse.json({ error: 'No items found. Please create items first.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'No items found. Please create items first.' },
+        { status: 400 }
+      )
     }
 
     // Generate all dates from start_date to today
     const dates: string[] = []
     const currentDate = new Date(startDate)
-    
+
     while (formatDateLocal(currentDate) <= todayStr) {
       dates.push(formatDateLocal(currentDate))
       currentDate.setDate(currentDate.getDate() + 1)
@@ -73,9 +79,7 @@ export async function POST(request: NextRequest) {
       .in('date', dates)
 
     // Create a set of existing records for quick lookup
-    const existingSet = new Set(
-      existingOpeningStock?.map((os) => `${os.item_id}-${os.date}`) || []
-    )
+    const existingSet = new Set(existingOpeningStock?.map(os => `${os.item_id}-${os.date}`) || [])
 
     // Prepare opening stock records to insert
     const openingStockRecords: Array<{
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
     for (const item of items) {
       for (const date of dates) {
         const key = `${item.id}-${date}`
-        
+
         // Skip if record already exists
         if (existingSet.has(key)) {
           continue
@@ -112,7 +116,8 @@ export async function POST(request: NextRequest) {
     if (openingStockRecords.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'No new opening stock records to create. All dates already have opening stock records.',
+        message:
+          'No new opening stock records to create. All dates already have opening stock records.',
         records_created: 0,
         dates_processed: dates.length,
         items_processed: items.length,
@@ -125,10 +130,8 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < openingStockRecords.length; i += BATCH_SIZE) {
       const batch = openingStockRecords.slice(i, i + BATCH_SIZE)
-      
-      const { error: insertError } = await supabaseAdmin
-        .from('opening_stock')
-        .insert(batch)
+
+      const { error: insertError } = await supabaseAdmin.from('opening_stock').insert(batch)
 
       if (insertError) {
         console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError)
@@ -168,4 +171,3 @@ function formatDateLocal(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
-

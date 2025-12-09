@@ -42,6 +42,7 @@ npm install
 ### 3. Configure Environment Variables
 
 1. Copy the example environment file:
+
    ```bash
    cp .env.local.example .env.local
    ```
@@ -60,6 +61,7 @@ npm install
 4. Click **Run** to execute the schema
 
 This will create:
+
 - `profiles` table (extends auth.users)
 - `items` table (inventory items)
 - `opening_stock` table
@@ -79,6 +81,7 @@ After running the schema, you need to create an admin user:
 5. Find your user and update the `role` field to `'admin'`
 
 Alternatively, you can use SQL:
+
 ```sql
 UPDATE profiles SET role = 'admin' WHERE email = 'your-admin-email@example.com';
 ```
@@ -165,12 +168,14 @@ restaurant-inventory/
 ### Environment Variables for Production
 
 Make sure to set these in your hosting platform:
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## Support
 
 For issues or questions, please check:
+
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)

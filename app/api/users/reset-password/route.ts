@@ -27,10 +27,7 @@ export async function POST(request: NextRequest) {
     const { user_id, new_password } = body
 
     if (!user_id || !new_password) {
-      return NextResponse.json(
-        { error: 'user_id and new_password are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'user_id and new_password are required' }, { status: 400 })
     }
 
     if (new_password.length < 6) {
@@ -48,16 +45,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,
@@ -75,10 +68,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to reset password'
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

@@ -36,7 +36,11 @@ export function getOrganizationInitials(organization: Organization | null | unde
   return organization.name.substring(0, 2).toUpperCase()
 }
 
-export default function OrganizationLogo({ organization, size = 'md', className = '' }: OrganizationLogoProps) {
+export default function OrganizationLogo({
+  organization,
+  size = 'md',
+  className = '',
+}: OrganizationLogoProps) {
   const logoUrl = getOrganizationLogo(organization)
   const initials = getOrganizationLogo(organization) ? null : getOrganizationInitials(organization)
   const brandColor = getOrganizationBrandColor(organization)
@@ -66,4 +70,3 @@ export default function OrganizationLogo({ organization, size = 'md', className 
     </div>
   )
 }
-

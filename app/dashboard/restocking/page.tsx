@@ -34,7 +34,9 @@ export default async function RestockingPage() {
       <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Restocking</h1>
-          <p className="mt-2 text-gray-600">Add quantity to items. This will be added to the opening stock for calculations.</p>
+          <p className="mt-2 text-gray-600">
+            Add quantity to items. This will be added to the opening stock for calculations.
+          </p>
         </div>
 
         <RestockingForm />
@@ -42,4 +44,3 @@ export default async function RestockingPage() {
     </DashboardLayout>
   )
 }
-

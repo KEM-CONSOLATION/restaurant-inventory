@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Expense, Profile, Organization } from '@/types/database'
 import { format, subDays } from 'date-fns'
-import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
+import {
+  exportToExcel,
+  exportToPDF,
+  exportToCSV,
+  formatCurrency,
+  formatDate,
+} from '@/lib/export-utils'
 
 export default function ExpensesForm() {
   const [expenses, setExpenses] = useState<(Expense & { recorded_by_profile?: Profile })[]>([])
@@ -30,14 +36,16 @@ export default function ExpensesForm() {
 
   const fetchOrganization = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
           .eq('id', user.id)
           .single()
-        
+
         if (profile?.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
@@ -82,7 +90,9 @@ export default function ExpensesForm() {
     }
 
     // Get user's organization_id
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     let organizationId: string | null = null
     if (user) {
       const { data: profile } = await supabase
@@ -219,9 +229,15 @@ export default function ExpensesForm() {
           <p className="text-sm text-red-600 mb-1">Total Expenses Today</p>
           <p className="text-2xl font-bold text-red-900">₦{totalExpenses.toFixed(2)}</p>
         </div>
-        <div className={`border rounded-lg p-4 ${balance >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-          <p className={`text-sm mb-1 ${balance >= 0 ? 'text-green-600' : 'text-orange-600'}`}>Balance After Expenses</p>
-          <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-900' : 'text-orange-900'}`}>
+        <div
+          className={`border rounded-lg p-4 ${balance >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}
+        >
+          <p className={`text-sm mb-1 ${balance >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+            Balance After Expenses
+          </p>
+          <p
+            className={`text-2xl font-bold ${balance >= 0 ? 'text-green-900' : 'text-orange-900'}`}
+          >
             ₦{balance.toFixed(2)}
           </p>
         </div>
@@ -252,7 +268,7 @@ export default function ExpensesForm() {
             type="date"
             value={date}
             max={format(new Date(), 'yyyy-MM-dd')}
-            onChange={(e) => {
+            onChange={e => {
               const selectedDate = e.target.value
               const today = format(new Date(), 'yyyy-MM-dd')
               if (selectedDate > today) {
@@ -275,7 +291,7 @@ export default function ExpensesForm() {
             id="description"
             type="text"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={e => setDescription(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
             placeholder="e.g., Fuel, Supplies, Utilities"
@@ -292,7 +308,7 @@ export default function ExpensesForm() {
             step="0.01"
             min="0"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={e => setAmount(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
             placeholder="0.00"
@@ -307,7 +323,7 @@ export default function ExpensesForm() {
             id="category"
             type="text"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={e => setCategory(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
             placeholder="e.g., Operations, Maintenance"
           />
@@ -336,9 +352,13 @@ export default function ExpensesForm() {
 
       <div className="mt-6 mb-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-700 mb-3">Filter Expenses by Date Range</h3>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="expense-start-date-filter" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="expense-start-date-filter"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Start Date
             </label>
             <input
@@ -346,7 +366,7 @@ export default function ExpensesForm() {
               type="date"
               value={startDate}
               max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => {
+              onChange={e => {
                 const newStartDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newStartDate > today) {
@@ -363,7 +383,10 @@ export default function ExpensesForm() {
             />
           </div>
           <div>
-            <label htmlFor="expense-end-date-filter" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="expense-end-date-filter"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               End Date
             </label>
             <input
@@ -372,7 +395,7 @@ export default function ExpensesForm() {
               value={endDate}
               max={format(new Date(), 'yyyy-MM-dd')}
               min={startDate}
-              onChange={(e) => {
+              onChange={e => {
                 const newEndDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newEndDate > today) {
@@ -389,9 +412,12 @@ export default function ExpensesForm() {
             />
           </div>
         </div>
-        <div className="flex items-center justify-between mt-2">
+        <div className="grid gap-2 md:flex items-center justify-between mt-2">
           <p className="text-sm text-gray-500">
-            Showing expenses from {startDate === endDate ? format(new Date(startDate), 'MMM dd, yyyy') : `${format(new Date(startDate), 'MMM dd, yyyy')} to ${format(new Date(endDate), 'MMM dd, yyyy')}`}
+            Showing expenses from{' '}
+            {startDate === endDate
+              ? format(new Date(startDate), 'MMM dd, yyyy')
+              : `${format(new Date(startDate), 'MMM dd, yyyy')} to ${format(new Date(endDate), 'MMM dd, yyyy')}`}
           </p>
           <button
             type="button"
@@ -400,11 +426,16 @@ export default function ExpensesForm() {
               setStartDate(today)
               setEndDate(today)
             }}
-            className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1 cursor-pointer"
+            className="px-3 py-1.5 text-center bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center justify-center gap-1 cursor-pointer"
             title="Reset to Today"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Reset to Today
           </button>
@@ -415,7 +446,10 @@ export default function ExpensesForm() {
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-gray-900">
-              Expenses {startDate === endDate ? `for ${format(new Date(startDate), 'MMM dd, yyyy')}` : `from ${format(new Date(startDate), 'MMM dd')} to ${format(new Date(endDate), 'MMM dd, yyyy')}`}
+              Expenses{' '}
+              {startDate === endDate
+                ? `for ${format(new Date(startDate), 'MMM dd, yyyy')}`
+                : `from ${format(new Date(startDate), 'MMM dd')} to ${format(new Date(endDate), 'MMM dd, yyyy')}`}
             </h3>
             <div className="flex items-center gap-2">
               <button
@@ -426,15 +460,18 @@ export default function ExpensesForm() {
                     exp.category || '-',
                     formatCurrency(exp.amount),
                     formatDate(exp.date),
-                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                    exp.recorded_by_profile?.full_name ||
+                      exp.recorded_by_profile?.email ||
+                      'Unknown',
                   ])
                   const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
                   const exportData = [...data, [], summaryRow]
-                  
-                  const dateRangeLabel = startDate === endDate 
-                    ? formatDate(startDate)
-                    : `${formatDate(startDate)} - ${formatDate(endDate)}`
-                  
+
+                  const dateRangeLabel =
+                    startDate === endDate
+                      ? formatDate(startDate)
+                      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+
                   exportToExcel(exportData, headers, {
                     title: 'Expenses Report',
                     subtitle: `Date Range: ${dateRangeLabel}`,
@@ -446,7 +483,12 @@ export default function ExpensesForm() {
                 title="Export to Excel"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 Excel
               </button>
@@ -458,15 +500,18 @@ export default function ExpensesForm() {
                     exp.category || '-',
                     formatCurrency(exp.amount),
                     formatDate(exp.date),
-                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                    exp.recorded_by_profile?.full_name ||
+                      exp.recorded_by_profile?.email ||
+                      'Unknown',
                   ])
                   const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
                   const exportData = [...data, [], summaryRow]
-                  
-                  const dateRangeLabel = startDate === endDate 
-                    ? formatDate(startDate)
-                    : `${formatDate(startDate)} - ${formatDate(endDate)}`
-                  
+
+                  const dateRangeLabel =
+                    startDate === endDate
+                      ? formatDate(startDate)
+                      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+
                   exportToPDF(exportData, headers, {
                     title: 'Expenses Report',
                     subtitle: `Date Range: ${dateRangeLabel}`,
@@ -478,7 +523,12 @@ export default function ExpensesForm() {
                 title="Export to PDF"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
                 </svg>
                 PDF
               </button>
@@ -490,15 +540,18 @@ export default function ExpensesForm() {
                     exp.category || '-',
                     formatCurrency(exp.amount),
                     formatDate(exp.date),
-                    exp.recorded_by_profile?.full_name || exp.recorded_by_profile?.email || 'Unknown',
+                    exp.recorded_by_profile?.full_name ||
+                      exp.recorded_by_profile?.email ||
+                      'Unknown',
                   ])
                   const summaryRow = ['', '', `Total: ${formatCurrency(totalExpenses)}`, '', '']
                   const exportData = [...data, [], summaryRow]
-                  
-                  const dateRangeLabel = startDate === endDate 
-                    ? formatDate(startDate)
-                    : `${formatDate(startDate)} - ${formatDate(endDate)}`
-                  
+
+                  const dateRangeLabel =
+                    startDate === endDate
+                      ? formatDate(startDate)
+                      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+
                   exportToCSV(exportData, headers, {
                     title: 'Expenses Report',
                     subtitle: `Date Range: ${dateRangeLabel}`,
@@ -510,7 +563,12 @@ export default function ExpensesForm() {
                 title="Export to CSV"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 CSV
               </button>
@@ -520,14 +578,22 @@ export default function ExpensesForm() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Description
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Category
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Amount
+                  </th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {expenses.map((expense) => (
+                {expenses.map(expense => (
                   <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-3 py-2 text-sm text-gray-900">{expense.description}</td>
                     <td className="px-3 py-2 text-sm text-gray-500">{expense.category || '-'}</td>
@@ -558,4 +624,3 @@ export default function ExpensesForm() {
     </div>
   )
 }
-

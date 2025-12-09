@@ -38,13 +38,16 @@ export async function POST(request: NextRequest) {
       .select('organization_id')
       .eq('id', user_id)
       .single()
-    
+
     const organizationId = profile?.organization_id || null
 
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
-      return NextResponse.json({ error: 'Cannot calculate closing stock for future dates' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cannot calculate closing stock for future dates' },
+        { status: 400 }
+      )
     }
 
     // Calculate previous date
@@ -54,15 +57,12 @@ export async function POST(request: NextRequest) {
     const prevDateStr = prevDate.toISOString().split('T')[0]
 
     // Get all items for this organization
-    let itemsQuery = supabaseAdmin
-      .from('items')
-      .select('*')
-      .order('name')
-    
+    let itemsQuery = supabaseAdmin.from('items').select('*').order('name')
+
     if (organizationId) {
       itemsQuery = itemsQuery.eq('organization_id', organizationId)
     }
-    
+
     const { data: items, error: itemsError } = await itemsQuery
 
     if (itemsError || !items) {
@@ -91,10 +91,7 @@ export async function POST(request: NextRequest) {
     const { data: todayOpeningStock } = await todayOpeningStockQuery
 
     // Get today's sales
-    let todaySalesQuery = supabaseAdmin
-      .from('sales')
-      .select('item_id, quantity')
-      .eq('date', date)
+    let todaySalesQuery = supabaseAdmin.from('sales').select('item_id, quantity').eq('date', date)
     todaySalesQuery = addOrgFilter(todaySalesQuery)
     const { data: todaySales } = await todaySalesQuery
 
@@ -115,36 +112,45 @@ export async function POST(request: NextRequest) {
     const { data: todayWasteSpoilage } = await todayWasteSpoilageQuery
 
     // Filter items by organization_id if specified
-    const filteredItems = organizationId 
+    const filteredItems = organizationId
       ? items.filter(item => item.organization_id === organizationId)
       : items
 
     // Calculate and save closing stock for each item
-    const closingStockRecords = filteredItems.map((item) => {
-          // Determine opening stock: use today's opening stock if exists, otherwise previous closing stock, otherwise zero
-          // Quantities only come from opening/closing stock - if not present, use zero
-          const todayOpening = todayOpeningStock?.find((os) => os.item_id === item.id)
-          const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
-          const openingStock = todayOpening
-            ? parseFloat(todayOpening.quantity.toString())
-            : prevClosing
-            ? parseFloat(prevClosing.quantity.toString())
-            : 0 // Use zero if no opening/closing stock exists
+    const closingStockRecords = filteredItems.map(item => {
+      // Determine opening stock: use today's opening stock if exists, otherwise previous closing stock, otherwise zero
+      // Quantities only come from opening/closing stock - if not present, use zero
+      const todayOpening = todayOpeningStock?.find(os => os.item_id === item.id)
+      const prevClosing = prevClosingStock?.find(cs => cs.item_id === item.id)
+      const openingStock = todayOpening
+        ? parseFloat(todayOpening.quantity.toString())
+        : prevClosing
+          ? parseFloat(prevClosing.quantity.toString())
+          : 0 // Use zero if no opening/closing stock exists
 
       // Calculate total sales for today
-      const itemSales = todaySales?.filter((s) => s.item_id === item.id) || []
+      const itemSales = todaySales?.filter(s => s.item_id === item.id) || []
       const totalSales = itemSales.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
 
       // Calculate total restocking for today
-      const itemRestocking = todayRestocking?.filter((r) => r.item_id === item.id) || []
-      const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+      const itemRestocking = todayRestocking?.filter(r => r.item_id === item.id) || []
+      const totalRestocking = itemRestocking.reduce(
+        (sum, r) => sum + parseFloat(r.quantity.toString()),
+        0
+      )
 
       // Calculate total waste/spoilage for today
-      const itemWasteSpoilage = todayWasteSpoilage?.filter((w) => w.item_id === item.id) || []
-      const totalWasteSpoilage = itemWasteSpoilage.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0)
+      const itemWasteSpoilage = todayWasteSpoilage?.filter(w => w.item_id === item.id) || []
+      const totalWasteSpoilage = itemWasteSpoilage.reduce(
+        (sum, w) => sum + parseFloat(w.quantity.toString()),
+        0
+      )
 
       // Calculate closing stock = opening stock + restocking - sales - waste/spoilage
-      const closingStock = Math.max(0, openingStock + totalRestocking - totalSales - totalWasteSpoilage)
+      const closingStock = Math.max(
+        0,
+        openingStock + totalRestocking - totalSales - totalWasteSpoilage
+      )
 
       return {
         item_id: item.id,
@@ -181,8 +187,8 @@ export async function POST(request: NextRequest) {
       records_saved: closingStockRecords.length,
     })
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to auto-save closing stock'
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to auto-save closing stock'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

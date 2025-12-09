@@ -169,4 +169,3 @@ export interface WasteSpoilage {
   item?: Item
   recorded_by_profile?: Profile
 }
-

@@ -23,15 +23,17 @@ Current Quantity = Opening Stock + Restocking - Sales
    - Sums up all sales quantities
 
 4. **Calculate Current Quantity**
+
    ```typescript
    const openingQty = opening ? parseFloat(opening.quantity.toString()) : 0
    const restockedQty = restocked.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
    const soldQty = sold.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
-   
+
    const currentQuantity = Math.max(0, openingQty + restockedQty - soldQty)
    ```
 
 ### Example:
+
 - Opening Stock: 10 pieces
 - Restocking: 5 pieces
 - Sales: 3 pieces
@@ -49,6 +51,7 @@ Cost Value = Current Quantity × Cost Price (per unit)
 - If cost price is not set, defaults to 0
 
 ### Example:
+
 - Current Quantity: 12 pieces
 - Cost Price: ₦1,500 per piece
 - **Cost Value = 12 × ₦1,500 = ₦18,000**
@@ -65,6 +68,7 @@ Selling Value = Current Quantity × Selling Price (per unit)
 - If selling price is not set, defaults to 0
 
 ### Example:
+
 - Current Quantity: 12 pieces
 - Selling Price: ₦2,500 per piece
 - **Selling Value = 12 × ₦2,500 = ₦30,000**
@@ -74,21 +78,25 @@ Selling Value = Current Quantity × Selling Price (per unit)
 ## Turnover Ratio Calculation (Current Implementation)
 
 **Current Formula:**
+
 ```
 Turnover Ratio = Sales Quantity (today) / Current Quantity
 ```
 
 **Note:** This is a simplified calculation. A more accurate turnover ratio would be:
+
 ```
 Turnover Ratio = Total Sales (period) / Average Inventory (period)
 ```
 
 ### Current Behavior:
+
 - If sales today = 0, turnover = 0
 - If current quantity = 0, turnover = 0
 - Otherwise: `soldQty / currentQuantity`
 
 ### Example:
+
 - Sales today: 3 pieces
 - Current Quantity: 12 pieces
 - **Turnover = 3 / 12 = 0.25**
@@ -98,6 +106,7 @@ Turnover Ratio = Total Sales (period) / Average Inventory (period)
 ## Days on Hand Calculation (Current Implementation)
 
 **Current Formula:**
+
 ```
 Days on Hand = Current Quantity / Sales Quantity (today)
 ```
@@ -105,11 +114,13 @@ Days on Hand = Current Quantity / Sales Quantity (today)
 **Note:** This calculates "how many days of stock we have if we continue selling at today's rate". This is simplified.
 
 ### Current Behavior:
+
 - If sales today = 0 but quantity > 0: Shows "N/A" (capped at 999 days)
 - If sales today = 0 and quantity = 0: Shows 0
 - Otherwise: `currentQuantity / soldQty`
 
 ### Example:
+
 - Current Quantity: 12 pieces
 - Sales today: 3 pieces
 - **Days on Hand = 12 / 3 = 4 days**
@@ -119,22 +130,28 @@ Days on Hand = Current Quantity / Sales Quantity (today)
 ## Important Notes
 
 ### 1. **Single Date Only**
+
 Currently, Inventory Valuation only looks at a **single date** (the selected date). It doesn't:
+
 - Account for waste/spoilage
 - Look at historical trends
 - Calculate averages over time periods
 
 ### 2. **Waste/Spoilage Not Included**
+
 The calculation doesn't subtract waste/spoilage from the current quantity. To include it, the formula would be:
+
 ```
 Current Quantity = Opening Stock + Restocking - Sales - Waste/Spoilage
 ```
 
 ### 3. **Turnover & Days on Hand Are Simplified**
+
 - **Turnover** should ideally use average inventory over a period (e.g., monthly)
 - **Days on Hand** should use average daily sales over a period, not just today's sales
 
 ### 4. **Date Selection**
+
 - You can select any past date to see what the inventory valuation was on that date
 - The calculation uses opening stock, restocking, and sales for that specific date only
 
@@ -168,10 +185,13 @@ Current Quantity = Opening Stock + Restocking - Sales - Waste/Spoilage
 ## Potential Improvements
 
 1. **Include Waste/Spoilage:**
+
    ```typescript
-   const wasteQty = waste?.filter(w => w.item_id === item.id)
-     .reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0) || 0
-   
+   const wasteQty =
+     waste
+       ?.filter(w => w.item_id === item.id)
+       .reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0) || 0
+
    const currentQuantity = Math.max(0, openingQty + restockedQty - soldQty - wasteQty)
    ```
 
@@ -190,5 +210,4 @@ Current Quantity = Opening Stock + Restocking - Sales - Waste/Spoilage
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

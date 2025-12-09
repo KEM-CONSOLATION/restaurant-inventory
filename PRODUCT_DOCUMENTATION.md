@@ -25,18 +25,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 1. **Manual Inventory Tracking & Human Error**
 
 **Pain Point:**
+
 - Restaurants rely on paper logs or basic spreadsheets
 - Manual calculations lead to errors
 - No real-time visibility into stock levels
 - Difficult to track inventory across multiple items
 
 **Solution:**
+
 - **Automated Stock Calculations**: Opening stock automatically becomes closing stock for the next day
 - **Real-time Stock Tracking**: See available stock instantly when recording sales
 - **Batch Management**: FIFO (First In, First Out) system ensures older stock is sold first
 - **Historical Data**: Complete audit trail of all inventory movements
 
 **Features:**
+
 - Opening Stock Management
 - Closing Stock Auto-calculation
 - Restocking with Price Tracking
@@ -47,18 +50,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 2. **Price Change Management & Profitability Tracking**
 
 **Pain Point:**
+
 - When prices change, past records get affected incorrectly
 - No way to track which batch was sold at which price
 - Difficult to calculate accurate profit margins
 - Price changes affect historical data incorrectly
 
 **Solution:**
+
 - **Price History Preservation**: Past prices remain unchanged when restocking with new prices
 - **Batch-based Pricing**: Each restocking batch maintains its own price
 - **FIFO Price Tracking**: Older stock (with older prices) is sold before newer stock
 - **Next-Day Price Application**: Price changes only affect the next day's opening stock
 
 **Features:**
+
 - Batch Price Tracking
 - Historical Price Preservation
 - Profit & Loss Reporting with Accurate Cost Calculations
@@ -69,18 +75,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 3. **Lack of Financial Visibility**
 
 **Pain Point:**
+
 - Restaurant owners don't know daily profitability
 - No clear view of expenses vs. revenue
 - Difficult to identify profitable vs. unprofitable items
 - No automated financial reporting
 
 **Solution:**
+
 - **Real-time Profit & Loss**: See daily gross profit and net profit instantly
 - **Expense Tracking**: Categorize and track all business expenses
 - **Sales Analytics**: Visual charts showing sales trends and top-selling items
 - **Balance Calculations**: Automatically calculate balance after expenses
 
 **Features:**
+
 - Profit & Loss Dashboard
 - Expense Management
 - Sales Reports & Analytics
@@ -91,18 +100,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 4. **Multi-Location & Multi-User Management**
 
 **Pain Point:**
+
 - Managing multiple restaurants requires separate systems
 - No centralized view across locations
 - Difficult to manage staff access and permissions
 - No organization-level branding
 
 **Solution:**
+
 - **Multi-Tenant Architecture**: Each restaurant operates in complete isolation
 - **Superadmin Dashboard**: Oversee all organizations from one place
 - **Role-Based Access**: Admin, Staff, and Superadmin roles with appropriate permissions
 - **Organization Branding**: Custom logos, colors, and names per organization
 
 **Features:**
+
 - Organization Management
 - User Role Management (Admin, Staff, Superadmin)
 - Organization-Specific Branding
@@ -113,18 +125,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 5. **Waste & Spoilage Tracking**
 
 **Pain Point:**
+
 - Food waste goes unrecorded
 - No visibility into waste patterns
 - Can't identify items with high spoilage rates
 - Waste affects profitability but isn't tracked
 
 **Solution:**
+
 - **Waste/Spoilage Recording**: Track items that go bad or are wasted
 - **Automatic Stock Deduction**: Waste automatically reduces available stock
 - **Waste Analytics**: Identify patterns and reduce waste
 - **Impact on Closing Stock**: Waste is factored into closing stock calculations
 
 **Features:**
+
 - Waste/Spoilage Form
 - Waste Impact on Stock Calculations
 - Historical Waste Tracking
@@ -134,18 +149,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 6. **Recipe & Cost Management**
 
 **Pain Point:**
+
 - No way to track recipe costs
 - Can't calculate dish profitability
 - Difficult to manage ingredient relationships
 - No recipe-based inventory planning
 
 **Solution:**
+
 - **Recipe Management**: Create recipes with multiple ingredients
 - **Cost Calculation**: Automatically calculate recipe costs based on ingredient prices
 - **Recipe-Based Inventory**: See which items are used in recipes
 - **Menu Integration**: Link recipes to menu items
 
 **Features:**
+
 - Recipe Creation & Management
 - Ingredient Tracking
 - Recipe Cost Calculation
@@ -156,18 +174,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 7. **Data Accuracy & Audit Trail**
 
 **Pain Point:**
+
 - No way to verify who made changes
 - Can't track when changes were made
 - Difficult to correct errors
 - No historical data for compliance
 
 **Solution:**
+
 - **Complete Audit Trail**: Every action is recorded with user and timestamp
 - **Historical Data View**: View any date's inventory, sales, and stock levels
 - **Past Date Editing**: Admins can correct past records
 - **Cascading Updates**: Changes to past dates automatically update subsequent days
 
 **Features:**
+
 - History View (Date-based)
 - Recorded By Tracking
 - Timestamp on All Records
@@ -178,18 +199,21 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ### 8. **Low Stock Alerts & Inventory Planning**
 
 **Pain Point:**
+
 - Run out of items unexpectedly
 - No warnings before stock runs low
 - Can't plan restocking efficiently
 - Reactive instead of proactive inventory management
 
 **Solution:**
+
 - **Low Stock Alerts**: Visual alerts for items running low
 - **Dashboard Warnings**: See low stock items immediately on dashboard
 - **Stock Availability Display**: Real-time stock levels when recording sales
 - **Restocking Recommendations**: Based on sales patterns
 
 **Features:**
+
 - Low Stock Alerts Component
 - Real-time Stock Availability
 - Stock Validation Before Sales
@@ -199,6 +223,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ## Key Features
 
 ### Inventory Management
+
 - ✅ Opening Stock Tracking
 - ✅ Closing Stock Auto-calculation
 - ✅ Restocking Management
@@ -206,6 +231,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - ✅ Multi-unit Support (kg, liters, pieces, etc.)
 
 ### Sales & Usage
+
 - ✅ Sales Recording with Stock Validation
 - ✅ Batch Selection (Opening Stock vs. Restocking)
 - ✅ Payment Mode Tracking (Cash, Transfer)
@@ -213,6 +239,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - ✅ Real-time Stock Updates
 
 ### Financial Management
+
 - ✅ Profit & Loss Reporting
 - ✅ Expense Tracking & Categorization
 - ✅ Balance Calculations
@@ -220,6 +247,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - ✅ Top Items Analysis
 
 ### Reporting & Analytics
+
 - ✅ Daily Stock Reports
 - ✅ Sales Reports
 - ✅ Profit & Loss Reports
@@ -227,6 +255,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - ✅ Date-based Filtering
 
 ### User & Organization Management
+
 - ✅ Multi-tenant Architecture
 - ✅ Role-Based Access Control
 - ✅ User Management (Create, Edit, Delete)
@@ -234,6 +263,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - ✅ Superadmin Dashboard
 
 ### Additional Features
+
 - ✅ Waste/Spoilage Tracking
 - ✅ Recipe Management
 - ✅ Low Stock Alerts
@@ -245,6 +275,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ## Technical Architecture
 
 ### Technology Stack
+
 - **Frontend**: Next.js 16 (App Router), React 19, TypeScript
 - **Styling**: Tailwind CSS 4
 - **Backend**: Supabase (PostgreSQL + Authentication + Row Level Security)
@@ -252,6 +283,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - **Deployment**: Netlify/Vercel ready
 
 ### Security Features
+
 - Row Level Security (RLS) for data isolation
 - Organization-level data segregation
 - Role-based access control
@@ -259,6 +291,7 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 - Foreign key constraints for data integrity
 
 ### Database Design
+
 - Multi-tenant architecture with `organization_id` on all tables
 - Unique constraints for data consistency
 - Audit fields (`recorded_by`, `created_at`) on all transaction tables
@@ -280,9 +313,11 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 ## Use Cases
 
 ### Use Case 1: Daily Operations
+
 **Scenario**: A restaurant owner needs to track daily inventory and sales.
 
 **Workflow**:
+
 1. Record opening stock in the morning
 2. Record sales throughout the day
 3. Record restocking when new items arrive
@@ -290,9 +325,11 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 5. View profit & loss for the day
 
 ### Use Case 2: Price Change Management
+
 **Scenario**: Rice price increases, but owner wants to sell old stock at old price first.
 
 **Workflow**:
+
 1. Restock rice with new price
 2. System creates a new batch with new price
 3. Old stock (with old price) is automatically selected first (FIFO)
@@ -300,9 +337,11 @@ StockWise solves the critical pain points faced by restaurant owners who struggl
 5. Next day's opening stock uses the new price
 
 ### Use Case 3: Multi-Location Management
+
 **Scenario**: A restaurant chain owner manages 5 locations.
 
 **Workflow**:
+
 1. Superadmin creates 5 organizations
 2. Each location has its own admin
 3. Superadmin can view metrics across all locations
@@ -328,11 +367,11 @@ See `FEATURE_ROADMAP.md` for detailed feature suggestions.
 ## Contact & Sales
 
 For inquiries about StockWise, please contact:
+
 - **Product**: StockWise Inventory Management System
 - **Version**: 1.0.0
 - **License**: Proprietary
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

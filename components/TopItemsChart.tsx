@@ -3,8 +3,26 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Sale, Item } from '@/types/database'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subWeeks,
+  subMonths,
+} from 'date-fns'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts'
 
 const COLORS = ['#4f46e5', '#7c3aed', '#a855f7', '#c084fc', '#d8b4fe', '#e9d5ff', '#f3e8ff']
 
@@ -203,18 +221,23 @@ export default function TopItemsChart() {
           <BarChart data={topItems} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis type="number" tick={{ fontSize: 12 }} />
-            <YAxis 
-              type="category" 
-              dataKey="name" 
+            <YAxis
+              type="category"
+              dataKey="name"
               tick={{ fontSize: 12, fontWeight: 'bold', textRendering: 'geometricPrecision' }}
               width={120}
             />
-            <Tooltip 
+            <Tooltip
               formatter={(value: number, name: string) => {
                 if (name === 'quantity') return [value, 'Quantity']
                 return [`₦${value.toFixed(2)}`, 'Sales']
               }}
-              contentStyle={{ backgroundColor: '#fff', color: '#000', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              contentStyle={{
+                backgroundColor: '#fff',
+                color: '#000',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+              }}
             />
             <Legend />
             <Bar dataKey="quantity" name="Quantity Sold" fill="#4f46e5" radius={[0, 4, 4, 0]}>
@@ -228,4 +251,3 @@ export default function TopItemsChart() {
     </div>
   )
 }
-

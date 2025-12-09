@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
-import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
+import {
+  exportToExcel,
+  exportToPDF,
+  exportToCSV,
+  formatCurrency,
+  formatDate,
+} from '@/lib/export-utils'
 import { Sale, Item, Expense, Organization } from '@/types/database'
 
 export default function DashboardExportButton() {
@@ -19,14 +25,16 @@ export default function DashboardExportButton() {
 
   const fetchOrganization = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
           .eq('id', user.id)
           .single()
-        
+
         if (profile?.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
@@ -45,7 +53,9 @@ export default function DashboardExportButton() {
     setExporting(true)
     try {
       // Get user's organization_id
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       let organizationId: string | null = null
       if (user) {
         const { data: profile } = await supabase
@@ -78,11 +88,11 @@ export default function DashboardExportButton() {
         .lte('date', endDate)
         .order('date', { ascending: true })
         .order('created_at', { ascending: true })
-      
+
       if (organizationId) {
         salesQuery = salesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: sales } = await salesQuery
 
       // Fetch expenses for date range
@@ -93,11 +103,11 @@ export default function DashboardExportButton() {
         .lte('date', endDate)
         .order('date', { ascending: true })
         .order('created_at', { ascending: true })
-      
+
       if (organizationId) {
         expensesQuery = expensesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: expenses } = await expensesQuery
 
       // Calculate totals
@@ -105,13 +115,16 @@ export default function DashboardExportButton() {
       const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0
 
       // Calculate profit/loss by item
-      const itemMap = new Map<string, {
-        item: Item
-        quantity: number
-        totalSelling: number
-        totalCost: number
-        profit: number
-      }>()
+      const itemMap = new Map<
+        string,
+        {
+          item: Item
+          quantity: number
+          totalSelling: number
+          totalCost: number
+          profit: number
+        }
+      >()
 
       sales?.forEach((sale: Sale & { item?: Item }) => {
         if (!sale.item) return
@@ -138,9 +151,10 @@ export default function DashboardExportButton() {
       const netProfit = grossProfit - totalExpenses
 
       // Prepare export data
-      const exportDateRangeLabel = startDate === endDate 
-        ? formatDate(startDate)
-        : `${formatDate(startDate)} - ${formatDate(endDate)}`
+      const exportDateRangeLabel =
+        startDate === endDate
+          ? formatDate(startDate)
+          : `${formatDate(startDate)} - ${formatDate(endDate)}`
 
       // Section 1: Summary
       const summaryData = [
@@ -157,7 +171,16 @@ export default function DashboardExportButton() {
       ]
 
       // Section 2: Sales Details
-      const salesHeaders = ['Date', 'Item', 'Quantity', 'Unit', 'Price/Unit', 'Total Price', 'Payment Mode', 'Description']
+      const salesHeaders = [
+        'Date',
+        'Item',
+        'Quantity',
+        'Unit',
+        'Price/Unit',
+        'Total Price',
+        'Payment Mode',
+        'Description',
+      ]
       const salesData = (sales || []).map((sale: Sale & { item?: Item }) => [
         formatDate(sale.date),
         sale.item?.name || '-',
@@ -169,14 +192,7 @@ export default function DashboardExportButton() {
         sale.description || '-',
       ])
       const salesTotalRow = ['TOTAL', '', '', '', '', formatCurrency(totalSales), '', '']
-      const salesSection = [
-        [],
-        ['SALES DETAILS'],
-        salesHeaders,
-        ...salesData,
-        salesTotalRow,
-        [],
-      ]
+      const salesSection = [[], ['SALES DETAILS'], salesHeaders, ...salesData, salesTotalRow, []]
 
       // Section 3: Profit & Loss by Item
       const plHeaders = ['Item', 'Quantity', 'Unit', 'Total Sales', 'Total Cost', 'Profit']
@@ -188,15 +204,15 @@ export default function DashboardExportButton() {
         formatCurrency(detail.totalCost),
         formatCurrency(detail.profit),
       ])
-      const plTotalRow = ['TOTAL', '', '', formatCurrency(totalSales), formatCurrency(totalCost), formatCurrency(grossProfit)]
-      const plSection = [
-        [],
-        ['PROFIT & LOSS BY ITEM'],
-        plHeaders,
-        ...plData,
-        plTotalRow,
-        [],
+      const plTotalRow = [
+        'TOTAL',
+        '',
+        '',
+        formatCurrency(totalSales),
+        formatCurrency(totalCost),
+        formatCurrency(grossProfit),
       ]
+      const plSection = [[], ['PROFIT & LOSS BY ITEM'], plHeaders, ...plData, plTotalRow, []]
 
       // Section 4: Expenses
       const expensesHeaders = ['Date', 'Description', 'Category', 'Amount']
@@ -207,21 +223,10 @@ export default function DashboardExportButton() {
         formatCurrency(exp.amount),
       ])
       const expensesTotalRow = ['TOTAL', '', '', formatCurrency(totalExpenses)]
-      const expensesSection = [
-        [],
-        ['EXPENSES'],
-        expensesHeaders,
-        ...expensesData,
-        expensesTotalRow,
-      ]
+      const expensesSection = [[], ['EXPENSES'], expensesHeaders, ...expensesData, expensesTotalRow]
 
       // Combine all sections
-      const allData = [
-        ...summaryData,
-        ...salesSection,
-        ...plSection,
-        ...expensesSection,
-      ]
+      const allData = [...summaryData, ...salesSection, ...plSection, ...expensesSection]
 
       const options = {
         title: 'Dashboard Summary Report',
@@ -245,13 +250,14 @@ export default function DashboardExportButton() {
     }
   }
 
-  const dateRangeLabel = startDate === endDate 
-    ? formatDate(startDate)
-    : `${formatDate(startDate)} - ${formatDate(endDate)}`
+  const dateRangeLabel =
+    startDate === endDate
+      ? formatDate(startDate)
+      : `${formatDate(startDate)} - ${formatDate(endDate)}`
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
+    <div className="relative ">
+      <div className=" flex items-center justify-between md:justify-start w-full gap-2">
         <button
           type="button"
           onClick={() => setShowDatePicker(!showDatePicker)}
@@ -259,7 +265,12 @@ export default function DashboardExportButton() {
           title="Select Date Range"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
           </svg>
           {dateRangeLabel}
         </button>
@@ -270,7 +281,12 @@ export default function DashboardExportButton() {
           title="Export Dashboard to Excel"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
           {exporting ? 'Exporting...' : 'Excel'}
         </button>
@@ -281,7 +297,12 @@ export default function DashboardExportButton() {
           title="Export Dashboard to PDF"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+            />
           </svg>
           {exporting ? 'Exporting...' : 'PDF'}
         </button>
@@ -292,7 +313,12 @@ export default function DashboardExportButton() {
           title="Export Dashboard to CSV"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
           {exporting ? 'Exporting...' : 'CSV'}
         </button>
@@ -300,15 +326,17 @@ export default function DashboardExportButton() {
 
       {showDatePicker && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowDatePicker(false)}
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setShowDatePicker(false)} />
           <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Select Date Range for Export</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              Select Date Range for Export
+            </h3>
             <div className="space-y-3">
               <div>
-                <label htmlFor="export-start-date" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="export-start-date"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Start Date
                 </label>
                 <input
@@ -316,7 +344,7 @@ export default function DashboardExportButton() {
                   type="date"
                   value={startDate}
                   max={format(new Date(), 'yyyy-MM-dd')}
-                  onChange={(e) => {
+                  onChange={e => {
                     const newStartDate = e.target.value
                     const today = format(new Date(), 'yyyy-MM-dd')
                     if (newStartDate > today) {
@@ -333,7 +361,10 @@ export default function DashboardExportButton() {
                 />
               </div>
               <div>
-                <label htmlFor="export-end-date" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="export-end-date"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   End Date
                 </label>
                 <input
@@ -342,7 +373,7 @@ export default function DashboardExportButton() {
                   value={endDate}
                   max={format(new Date(), 'yyyy-MM-dd')}
                   min={startDate}
-                  onChange={(e) => {
+                  onChange={e => {
                     const newEndDate = e.target.value
                     const today = format(new Date(), 'yyyy-MM-dd')
                     if (newEndDate > today) {
@@ -369,7 +400,12 @@ export default function DashboardExportButton() {
                   className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium flex items-center gap-1"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   Today
                 </button>
@@ -388,4 +424,3 @@ export default function DashboardExportButton() {
     </div>
   )
 }
-

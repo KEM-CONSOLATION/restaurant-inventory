@@ -26,9 +26,7 @@ export async function POST() {
       return NextResponse.json({ error: 'No items found' }, { status: 400 })
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from('items')
-      .update({ quantity: 0 })
+    const { error: updateError } = await supabaseAdmin.from('items').update({ quantity: 0 })
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
@@ -45,4 +43,3 @@ export async function POST() {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

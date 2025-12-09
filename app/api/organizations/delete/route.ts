@@ -38,16 +38,12 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     // Check if organization has any users
     const { count: userCount } = await supabaseAdmin
@@ -57,15 +53,15 @@ export async function DELETE(request: NextRequest) {
 
     if (userCount && userCount > 0) {
       return NextResponse.json(
-        { error: 'Cannot delete organization with existing users. Please reassign or delete users first.' },
+        {
+          error:
+            'Cannot delete organization with existing users. Please reassign or delete users first.',
+        },
         { status: 400 }
       )
     }
 
-    const { error } = await supabaseAdmin
-      .from('organizations')
-      .delete()
-      .eq('id', organization_id)
+    const { error } = await supabaseAdmin.from('organizations').delete().eq('id', organization_id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -77,4 +73,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

@@ -30,10 +30,7 @@ export async function DELETE(request: NextRequest) {
     const isPastDate = date < today
 
     // Delete sale record (DO NOT restore item quantity - opening stock stays constant)
-    const { error: deleteError } = await supabaseAdmin
-      .from('sales')
-      .delete()
-      .eq('id', sale_id)
+    const { error: deleteError } = await supabaseAdmin.from('sales').delete().eq('id', sale_id)
 
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 })
@@ -44,7 +41,7 @@ export async function DELETE(request: NextRequest) {
       try {
         // Recalculate closing stock for this date
         await recalculateClosingStock(date, user_id)
-        
+
         // Cascade update opening stock for subsequent days
         await cascadeUpdateFromDate(date, user_id)
       } catch (error) {
@@ -59,4 +56,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

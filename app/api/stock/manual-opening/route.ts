@@ -26,31 +26,36 @@ export async function POST(request: NextRequest) {
       .select('organization_id')
       .eq('id', user_id)
       .single()
-    
+
     const organizationId = profile?.organization_id || null
 
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
-      return NextResponse.json({ error: 'Cannot record opening stock for future dates' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cannot record opening stock for future dates' },
+        { status: 400 }
+      )
     }
 
     // Validate items array
-    const openingStockRecords = items.map((item: { 
-      item_id: string
-      quantity: number
-      cost_price?: number | null
-      selling_price?: number | null
-    }) => ({
-      item_id: item.item_id,
-      quantity: item.quantity,
-      cost_price: item.cost_price ?? null,
-      selling_price: item.selling_price ?? null,
-      date,
-      recorded_by: user_id,
-      organization_id: organizationId,
-      notes: 'Manually entered opening stock',
-    }))
+    const openingStockRecords = items.map(
+      (item: {
+        item_id: string
+        quantity: number
+        cost_price?: number | null
+        selling_price?: number | null
+      }) => ({
+        item_id: item.item_id,
+        quantity: item.quantity,
+        cost_price: item.cost_price ?? null,
+        selling_price: item.selling_price ?? null,
+        date,
+        recorded_by: user_id,
+        organization_id: organizationId,
+        notes: 'Manually entered opening stock',
+      })
+    )
 
     const { error: upsertError } = await supabaseAdmin
       .from('opening_stock')
@@ -68,20 +73,23 @@ export async function POST(request: NextRequest) {
           .from('items')
           .update({ cost_price: record.cost_price })
           .eq('id', record.item_id)
-        
+
         if (itemUpdateError) {
           console.error(`Failed to update cost_price for item ${record.item_id}:`, itemUpdateError)
         }
       }
-      
+
       if (record.selling_price !== null && record.selling_price !== undefined) {
         const { error: itemUpdateError } = await supabaseAdmin
           .from('items')
           .update({ selling_price: record.selling_price })
           .eq('id', record.item_id)
-        
+
         if (itemUpdateError) {
-          console.error(`Failed to update selling_price for item ${record.item_id}:`, itemUpdateError)
+          console.error(
+            `Failed to update selling_price for item ${record.item_id}:`,
+            itemUpdateError
+          )
         }
       }
     }
@@ -96,4 +104,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

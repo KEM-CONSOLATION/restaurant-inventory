@@ -12,7 +12,9 @@ interface IngredientInput {
 }
 
 export default function RecipeManagement() {
-  const [recipes, setRecipes] = useState<(Recipe & { menu_item?: MenuItem; ingredients?: RecipeIngredient[] })[]>([])
+  const [recipes, setRecipes] = useState<
+    (Recipe & { menu_item?: MenuItem; ingredients?: RecipeIngredient[] })[]
+  >([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(false)
@@ -39,11 +41,13 @@ export default function RecipeManagement() {
     try {
       const { data, error } = await supabase
         .from('recipes')
-        .select(`
+        .select(
+          `
           *,
           menu_item:menu_items(*),
           ingredients:recipe_ingredients(*, item:items(*))
-        `)
+        `
+        )
         .order('name')
 
       if (error) throw error
@@ -56,18 +60,12 @@ export default function RecipeManagement() {
   }
 
   const fetchMenuItems = async () => {
-    const { data } = await supabase
-      .from('menu_items')
-      .select('*')
-      .order('name')
+    const { data } = await supabase.from('menu_items').select('*').order('name')
     if (data) setMenuItems(data)
   }
 
   const fetchItems = async () => {
-    const { data } = await supabase
-      .from('items')
-      .select('*')
-      .order('name')
+    const { data } = await supabase.from('items').select('*').order('name')
     if (data) setItems(data)
   }
 
@@ -82,7 +80,7 @@ export default function RecipeManagement() {
   const handleIngredientChange = (index: number, field: keyof IngredientInput, value: string) => {
     const updated = [...ingredients]
     updated[index] = { ...updated[index], [field]: value }
-    
+
     // Auto-set unit when item is selected
     if (field === 'item_id' && value) {
       const selectedItem = items.find(item => item.id === value)
@@ -90,7 +88,7 @@ export default function RecipeManagement() {
         updated[index].unit = selectedItem.unit
       }
     }
-    
+
     setIngredients(updated)
   }
 
@@ -117,7 +115,9 @@ export default function RecipeManagement() {
             name: formData.name,
             description: formData.description || null,
             serving_size: parseInt(formData.serving_size, 10) || 1,
-            preparation_time: formData.preparation_time ? parseInt(formData.preparation_time, 10) : null,
+            preparation_time: formData.preparation_time
+              ? parseInt(formData.preparation_time, 10)
+              : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRecipe.id)
@@ -125,10 +125,7 @@ export default function RecipeManagement() {
         if (recipeError) throw recipeError
 
         // Delete existing ingredients
-        await supabase
-          .from('recipe_ingredients')
-          .delete()
-          .eq('recipe_id', editingRecipe.id)
+        await supabase.from('recipe_ingredients').delete().eq('recipe_id', editingRecipe.id)
 
         // Insert new ingredients
         const ingredientRecords = validIngredients.map(ing => ({
@@ -155,7 +152,9 @@ export default function RecipeManagement() {
             name: formData.name,
             description: formData.description || null,
             serving_size: parseInt(formData.serving_size, 10) || 1,
-            preparation_time: formData.preparation_time ? parseInt(formData.preparation_time, 10) : null,
+            preparation_time: formData.preparation_time
+              ? parseInt(formData.preparation_time, 10)
+              : null,
           })
           .select()
           .single()
@@ -180,7 +179,13 @@ export default function RecipeManagement() {
         setMessage({ type: 'success', text: 'Recipe created successfully!' })
       }
 
-      setFormData({ menu_item_id: '', name: '', description: '', serving_size: '1', preparation_time: '' })
+      setFormData({
+        menu_item_id: '',
+        name: '',
+        description: '',
+        serving_size: '1',
+        preparation_time: '',
+      })
       setIngredients([])
       setEditingRecipe(null)
       setShowForm(false)
@@ -214,7 +219,12 @@ export default function RecipeManagement() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this recipe? This will also delete all its ingredients.')) return
+    if (
+      !confirm(
+        'Are you sure you want to delete this recipe? This will also delete all its ingredients.'
+      )
+    )
+      return
 
     setLoading(true)
     try {
@@ -231,7 +241,13 @@ export default function RecipeManagement() {
   }
 
   const handleCancel = () => {
-    setFormData({ menu_item_id: '', name: '', description: '', serving_size: '1', preparation_time: '' })
+    setFormData({
+      menu_item_id: '',
+      name: '',
+      description: '',
+      serving_size: '1',
+      preparation_time: '',
+    })
     setIngredients([])
     setEditingRecipe(null)
     setShowForm(false)
@@ -279,11 +295,11 @@ export default function RecipeManagement() {
               <select
                 id="menu_item"
                 value={formData.menu_item_id}
-                onChange={(e) => setFormData({ ...formData, menu_item_id: e.target.value })}
+                onChange={e => setFormData({ ...formData, menu_item_id: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
               >
                 <option value="">Select a menu item (optional)</option>
-                {menuItems.map((item) => (
+                {menuItems.map(item => (
                   <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
@@ -299,7 +315,7 @@ export default function RecipeManagement() {
                 id="name"
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="e.g., Jollof Rice Recipe"
@@ -313,7 +329,7 @@ export default function RecipeManagement() {
               <textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={e => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                 placeholder="Recipe description..."
@@ -322,7 +338,10 @@ export default function RecipeManagement() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="serving_size" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="serving_size"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Serving Size *
                 </label>
                 <input
@@ -331,7 +350,7 @@ export default function RecipeManagement() {
                   step="1"
                   min="1"
                   value={formData.serving_size}
-                  onChange={(e) => setFormData({ ...formData, serving_size: e.target.value })}
+                  onChange={e => setFormData({ ...formData, serving_size: e.target.value })}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                   placeholder="1"
@@ -340,7 +359,10 @@ export default function RecipeManagement() {
               </div>
 
               <div>
-                <label htmlFor="preparation_time" className="block text-sm font-medium text-gray-700 mb-1">
+                <label
+                  htmlFor="preparation_time"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Preparation Time (minutes, optional)
                 </label>
                 <input
@@ -349,7 +371,7 @@ export default function RecipeManagement() {
                   step="1"
                   min="0"
                   value={formData.preparation_time}
-                  onChange={(e) => setFormData({ ...formData, preparation_time: e.target.value })}
+                  onChange={e => setFormData({ ...formData, preparation_time: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
                   placeholder="0"
                 />
@@ -368,19 +390,21 @@ export default function RecipeManagement() {
                 </button>
               </div>
               {ingredients.length === 0 && (
-                <p className="text-sm text-gray-500 mb-2">No ingredients added. Click "Add Ingredient" to add items.</p>
+                <p className="text-sm text-gray-500 mb-2">
+                  No ingredients added. Click "Add Ingredient" to add items.
+                </p>
               )}
               {ingredients.map((ingredient, index) => (
                 <div key={index} className="grid grid-cols-12 gap-2 mb-2 items-end">
                   <div className="col-span-4">
                     <select
                       value={ingredient.item_id}
-                      onChange={(e) => handleIngredientChange(index, 'item_id', e.target.value)}
+                      onChange={e => handleIngredientChange(index, 'item_id', e.target.value)}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer text-sm"
                     >
                       <option value="">Select item</option>
-                      {items.map((item) => (
+                      {items.map(item => (
                         <option key={item.id} value={item.id}>
                           {item.name}
                         </option>
@@ -393,7 +417,7 @@ export default function RecipeManagement() {
                       step="0.01"
                       min="0.01"
                       value={ingredient.quantity}
-                      onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
+                      onChange={e => handleIngredientChange(index, 'quantity', e.target.value)}
                       required
                       placeholder="Qty"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black text-sm"
@@ -403,7 +427,7 @@ export default function RecipeManagement() {
                     <input
                       type="text"
                       value={ingredient.unit}
-                      onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
+                      onChange={e => handleIngredientChange(index, 'unit', e.target.value)}
                       required
                       placeholder="Unit"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black text-sm"
@@ -413,7 +437,7 @@ export default function RecipeManagement() {
                     <input
                       type="text"
                       value={ingredient.notes}
-                      onChange={(e) => handleIngredientChange(index, 'notes', e.target.value)}
+                      onChange={e => handleIngredientChange(index, 'notes', e.target.value)}
                       placeholder="Notes"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black text-sm"
                     />
@@ -475,7 +499,7 @@ export default function RecipeManagement() {
                     </td>
                   </tr>
                 ) : (
-                  recipes.map((recipe) => (
+                  recipes.map(recipe => (
                     <tr key={recipe.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {recipe.name}
@@ -489,7 +513,7 @@ export default function RecipeManagement() {
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {recipe.ingredients && recipe.ingredients.length > 0 ? (
                           <div className="space-y-1">
-                            {recipe.ingredients.map((ing) => (
+                            {recipe.ingredients.map(ing => (
                               <div key={ing.id}>
                                 {ing.quantity} {ing.unit} {ing.item?.name || 'Unknown'}
                               </div>
@@ -524,4 +548,3 @@ export default function RecipeManagement() {
     </div>
   )
 }
-

@@ -40,13 +40,9 @@ export async function createClient() {
         (error.status === 400 && error.message?.includes('Refresh Token'))
       ) {
         // Clear cookies and redirect
-        const cookieNames = [
-          'sb-access-token',
-          'sb-refresh-token',
-          'sb-auth-token',
-        ]
-        
-        cookieNames.forEach((cookieName) => {
+        const cookieNames = ['sb-access-token', 'sb-refresh-token', 'sb-auth-token']
+
+        cookieNames.forEach(cookieName => {
           cookieStore.delete(cookieName)
           cookieStore.delete(`${cookieName}-expires`)
         })
@@ -67,4 +63,3 @@ export async function createClient() {
 
   return supabase
 }
-

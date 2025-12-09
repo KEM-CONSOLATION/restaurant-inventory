@@ -3,8 +3,29 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Sale, Item } from '@/types/database'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, eachWeekOfInterval, eachMonthOfInterval } from 'date-fns'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subWeeks,
+  subMonths,
+  eachWeekOfInterval,
+  eachMonthOfInterval,
+} from 'date-fns'
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts'
 
 export default function SalesTrendChart() {
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
@@ -35,7 +56,7 @@ export default function SalesTrendChart() {
 
   const fetchDailyData = async () => {
     const days: { day: string; sales: number }[] = []
-    
+
     // Get last 7 days
     for (let i = 6; i >= 0; i--) {
       const date = new Date()
@@ -49,7 +70,7 @@ export default function SalesTrendChart() {
         .eq('date', dateStr)
 
       const totalSales = salesData?.reduce((sum, sale) => sum + (sale.total_price || 0), 0) || 0
-      
+
       days.push({
         day: dayLabel,
         sales: totalSales,
@@ -79,7 +100,7 @@ export default function SalesTrendChart() {
         .lte('date', endDate)
 
       const totalSales = salesData?.reduce((sum, sale) => sum + (sale.total_price || 0), 0) || 0
-      
+
       weeklySales.push({
         week: format(weekStart, 'MMM dd'),
         sales: totalSales,
@@ -109,7 +130,7 @@ export default function SalesTrendChart() {
         .lte('date', endDate)
 
       const totalSales = salesData?.reduce((sum, sale) => sum + (sale.total_price || 0), 0) || 0
-      
+
       monthlySales.push({
         month: format(monthStart, 'MMM yyyy'),
         sales: totalSales,
@@ -171,26 +192,31 @@ export default function SalesTrendChart() {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey={period === 'daily' ? 'day' : period === 'weekly' ? 'week' : 'month'} 
+            <XAxis
+              dataKey={period === 'daily' ? 'day' : period === 'weekly' ? 'week' : 'month'}
               tick={{ fontSize: 12 }}
               angle={period === 'daily' ? -45 : 0}
               textAnchor={period === 'daily' ? 'end' : 'middle'}
               height={period === 'daily' ? 80 : 30}
             />
-            <YAxis 
+            <YAxis
               tick={{ fontSize: 12 }}
-              tickFormatter={(value) => `₦${(value / 1000).toFixed(0)}k`}
+              tickFormatter={value => `₦${(value / 1000).toFixed(0)}k`}
             />
-            <Tooltip 
+            <Tooltip
               formatter={(value: number) => [`₦${value.toFixed(2)}`, 'Sales']}
-              contentStyle={{ backgroundColor: '#fff', color: '#000', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              contentStyle={{
+                backgroundColor: '#fff',
+                color: '#000',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+              }}
             />
             <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="sales" 
-              stroke="#4f46e5" 
+            <Line
+              type="monotone"
+              dataKey="sales"
+              stroke="#4f46e5"
               strokeWidth={2}
               name="Total Sales"
               dot={{ fill: '#4f46e5', r: 4 }}
@@ -201,4 +227,3 @@ export default function SalesTrendChart() {
     </div>
   )
 }
-

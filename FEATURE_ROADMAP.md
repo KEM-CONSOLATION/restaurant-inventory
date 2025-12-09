@@ -5,11 +5,13 @@
 ### Priority 1: Essential for Launch (Must Have)
 
 #### 1. **Export & Reporting**
+
 **Priority**: Critical  
 **Effort**: Medium  
 **Impact**: High
 
 **Features**:
+
 - Export sales reports to Excel/CSV
 - Export profit & loss reports to PDF
 - Export inventory reports
@@ -19,6 +21,7 @@
 **Why**: Restaurants need to share reports with accountants, tax authorities, and stakeholders. Excel/PDF exports are industry standard.
 
 **Implementation**:
+
 - Use libraries like `xlsx` for Excel export
 - Use `pdfkit` or `react-pdf` for PDF generation
 - Create API endpoints for report generation
@@ -27,11 +30,13 @@
 ---
 
 #### 2. **Notifications & Alerts System**
+
 **Priority**: Critical  
 **Effort**: Medium  
 **Impact**: High
 
 **Features**:
+
 - Email notifications for low stock
 - In-app notification center
 - Alert when stock runs out during sales
@@ -41,6 +46,7 @@
 **Why**: Proactive alerts prevent stockouts and help owners stay informed without constantly checking the dashboard.
 
 **Implementation**:
+
 - Integrate with email service (SendGrid, Resend, or Supabase Edge Functions)
 - Create notification preferences in user settings
 - Build notification center component
@@ -49,11 +55,13 @@
 ---
 
 #### 3. **Supplier Management**
+
 **Priority**: High  
 **Effort**: Medium  
 **Impact**: Medium-High
 
 **Features**:
+
 - Add/edit/delete suppliers
 - Supplier contact information
 - Purchase history per supplier
@@ -63,6 +71,7 @@
 **Why**: Restaurants need to track where they buy from, compare prices, and manage supplier relationships.
 
 **Implementation**:
+
 - Create `suppliers` table
 - Add `supplier_id` to `restocking` table
 - Create supplier management UI
@@ -71,11 +80,13 @@
 ---
 
 #### 4. **Purchase Orders**
+
 **Priority**: High  
 **Effort**: High  
 **Impact**: High
 
 **Features**:
+
 - Create purchase orders
 - Send purchase orders to suppliers
 - Track order status (Pending, Received, Cancelled)
@@ -85,6 +96,7 @@
 **Why**: Streamlines procurement process and provides better inventory planning.
 
 **Implementation**:
+
 - Create `purchase_orders` table
 - Create `purchase_order_items` table
 - Build purchase order creation UI
@@ -93,11 +105,13 @@
 ---
 
 #### 5. **Inventory Valuation**
+
 **Priority**: High  
 **Effort**: Medium  
 **Impact**: High
 
 **Features**:
+
 - Current inventory value (at cost)
 - Current inventory value (at selling price)
 - Inventory turnover ratio
@@ -107,6 +121,7 @@
 **Why**: Critical for financial planning and understanding cash tied up in inventory.
 
 **Implementation**:
+
 - Calculate inventory value from opening stock + restocking - sales
 - Add valuation cards to dashboard
 - Create valuation report page
@@ -117,11 +132,13 @@
 ### Priority 2: Important for Growth (Should Have)
 
 #### 6. **Reorder Points & Automated Alerts**
+
 **Priority**: Medium-High  
 **Effort**: Medium  
 **Impact**: Medium-High
 
 **Features**:
+
 - Set minimum stock levels per item
 - Automatic alerts when stock falls below reorder point
 - Suggested reorder quantities
@@ -130,6 +147,7 @@
 **Why**: Prevents stockouts and helps with inventory planning.
 
 **Implementation**:
+
 - Add `reorder_point` and `reorder_quantity` to `items` table
 - Enhance low stock alerts to use reorder points
 - Add reorder point management in item management
@@ -138,11 +156,13 @@
 ---
 
 #### 7. **Barcode Scanning**
+
 **Priority**: Medium  
 **Effort**: High  
 **Impact**: Medium
 
 **Features**:
+
 - Add barcode to items
 - Scan barcodes for quick item selection
 - Mobile-friendly barcode scanner
@@ -151,6 +171,7 @@
 **Why**: Speeds up inventory operations, especially for high-volume items.
 
 **Implementation**:
+
 - Add `barcode` field to `items` table
 - Use camera API for barcode scanning
 - Integrate with barcode scanning library (e.g., `html5-qrcode`)
@@ -159,11 +180,13 @@
 ---
 
 #### 8. **Multi-Location Support (Enhanced)**
+
 **Priority**: Medium  
 **Effort**: High  
 **Impact**: Medium-High
 
 **Features**:
+
 - Transfer stock between locations
 - Consolidated reporting across locations
 - Location-specific pricing
@@ -172,6 +195,7 @@
 **Why**: Essential for restaurant chains and multi-location businesses.
 
 **Implementation**:
+
 - Add `locations` table
 - Add `location_id` to all transaction tables
 - Create stock transfer functionality
@@ -180,11 +204,13 @@
 ---
 
 #### 9. **API & Integrations**
+
 **Priority**: Medium  
 **Effort**: High  
 **Impact**: Medium
 
 **Features**:
+
 - RESTful API for third-party integrations
 - Webhook support
 - POS system integration (Square, Toast, etc.)
@@ -193,6 +219,7 @@
 **Why**: Allows restaurants to connect with existing tools and automate workflows.
 
 **Implementation**:
+
 - Create API authentication (API keys)
 - Build API documentation (OpenAPI/Swagger)
 - Create webhook system
@@ -201,11 +228,13 @@
 ---
 
 #### 10. **Mobile App / PWA**
+
 **Priority**: Medium  
 **Effort**: High  
 **Impact**: High
 
 **Features**:
+
 - Progressive Web App (PWA) for mobile access
 - Offline mode for recording sales
 - Mobile-optimized UI
@@ -214,6 +243,7 @@
 **Why**: Staff often need to record sales on mobile devices. PWA provides app-like experience without app store.
 
 **Implementation**:
+
 - Add PWA manifest
 - Implement service worker for offline support
 - Optimize UI for mobile screens
@@ -224,11 +254,13 @@
 ### Priority 3: Nice to Have (Future Enhancements)
 
 #### 11. **Advanced Analytics**
+
 **Priority**: Low-Medium  
 **Effort**: Medium  
 **Impact**: Medium
 
 **Features**:
+
 - Predictive analytics for demand forecasting
 - Seasonal trend analysis
 - Item profitability ranking
@@ -239,11 +271,13 @@
 ---
 
 #### 12. **Tax Reporting**
+
 **Priority**: Low-Medium  
 **Effort**: Medium  
 **Impact**: Medium
 
 **Features**:
+
 - Tax calculation and reporting
 - VAT/GST tracking
 - Tax-exempt items
@@ -254,11 +288,13 @@
 ---
 
 #### 13. **Backup & Restore**
+
 **Priority**: Low  
 **Effort**: Low-Medium  
 **Impact**: Low-Medium
 
 **Features**:
+
 - Manual data backup
 - Scheduled automatic backups
 - Data restore functionality
@@ -269,11 +305,13 @@
 ---
 
 #### 14. **Audit Logs**
+
 **Priority**: Low  
 **Effort**: Medium  
 **Impact**: Low-Medium
 
 **Features**:
+
 - Detailed audit log of all actions
 - User activity tracking
 - Change history for all records
@@ -284,11 +322,13 @@
 ---
 
 #### 15. **Multi-Currency Support**
+
 **Priority**: Low  
 **Effort**: Medium  
 **Impact**: Low
 
 **Features**:
+
 - Support multiple currencies
 - Currency conversion
 - Multi-currency reporting
@@ -324,23 +364,27 @@ Low Impact, High Effort → Defer
 ## Recommended Launch Sequence
 
 ### Phase 1: MVP+ (Current + Essential)
+
 1. ✅ Current features (already implemented)
 2. Export & Reporting
 3. Notifications & Alerts
 4. Inventory Valuation
 
 ### Phase 2: Growth Features
+
 5. Supplier Management
 6. Purchase Orders
 7. Reorder Points
 8. Barcode Scanning
 
 ### Phase 3: Scale Features
+
 9. API & Integrations
 10. Mobile App/PWA
 11. Multi-Location (Enhanced)
 
 ### Phase 4: Advanced Features
+
 12. Advanced Analytics
 13. Tax Reporting
 14. Other nice-to-haves
@@ -359,5 +403,4 @@ Track these metrics to measure feature success:
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

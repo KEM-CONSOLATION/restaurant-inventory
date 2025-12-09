@@ -11,16 +11,19 @@ Available Stock = Opening Stock + Restocking - Sales
 ```
 
 **For Today's Date:**
+
 - Gets opening stock for today from `opening_stock` table
 - Gets all restocking records for today from `restocking` table
 - Gets all sales for today from `sales` table
 - Calculates: `openingQty + totalRestocking - totalSales`
 
 **For Past Dates:**
+
 - Same calculation, but uses data from the specific past date
 - Also accounts for waste/spoilage: `openingQty + totalRestocking - totalSales - totalWasteSpoilage`
 
 ### Example:
+
 - Opening Stock: 10 pieces
 - Restocked: 5 pieces
 - Sold: 3 pieces
@@ -46,6 +49,7 @@ If rice shows 0 available in the sales dropdown but you have opening stock, it's
 When you restock yesterday, it should automatically appear in today's opening stock. Here's how it works:
 
 ### The Flow:
+
 1. **Yesterday**: You restock rice (e.g., 20 pieces)
 2. **Yesterday End**: Closing stock is calculated: `Opening + Restocking - Sales - Waste`
 3. **Today Start**: Opening stock is auto-created from yesterday's closing stock
@@ -53,7 +57,7 @@ When you restock yesterday, it should automatically appear in today's opening st
 
 ### What Was Fixed:
 
-1. **Auto-Create Opening Stock**: 
+1. **Auto-Create Opening Stock**:
    - When you open the Sales form for today, it automatically creates opening stock if it doesn't exist
    - This uses the `/api/stock/auto-create-opening` endpoint
    - It pulls from yesterday's closing stock
@@ -96,6 +100,7 @@ If opening stock for today wasn't created automatically:
 ## Technical Details
 
 ### Auto-Create Opening Stock Logic:
+
 - Checks if opening stock exists for today
 - If not, calls `/api/stock/auto-create-opening`
 - This API:
@@ -105,7 +110,9 @@ If opening stock for today wasn't created automatically:
   4. Preserves price history from previous opening stock
 
 ### Organization ID Filtering:
+
 All queries now include:
+
 ```typescript
 if (organizationId) {
   query = query.eq('organization_id', organizationId)
@@ -113,7 +120,7 @@ if (organizationId) {
 ```
 
 This ensures:
+
 - Users only see their organization's data
 - Calculations are accurate per organization
 - No cross-organization data leakage
-

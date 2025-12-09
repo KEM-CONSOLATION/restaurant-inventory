@@ -15,7 +15,19 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { item_id, quantity, price_per_unit, total_price, payment_mode, date, description, user_id, restocking_id, opening_stock_id, batch_label } = body
+    const {
+      item_id,
+      quantity,
+      price_per_unit,
+      total_price,
+      payment_mode,
+      date,
+      description,
+      user_id,
+      restocking_id,
+      opening_stock_id,
+      batch_label,
+    } = body
 
     if (!item_id || !quantity || !date || !user_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -59,7 +71,10 @@ export async function POST(request: NextRequest) {
 
       // Verify the restocking batch belongs to the user's organization
       if (restocking.organization_id && restocking.organization_id !== organization_id) {
-        return NextResponse.json({ error: 'Restocking batch does not belong to your organization' }, { status: 403 })
+        return NextResponse.json(
+          { error: 'Restocking batch does not belong to your organization' },
+          { status: 403 }
+        )
       }
 
       const { data: existingSales } = await supabaseAdmin
@@ -70,7 +85,8 @@ export async function POST(request: NextRequest) {
         .eq('organization_id', organization_id)
 
       const restockQty = parseFloat(restocking.quantity.toString())
-      const totalSalesSoFar = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const totalSalesSoFar =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
       availableStock = Math.max(0, restockQty - totalSalesSoFar)
       stockInfo = `Restocked: ${restockQty}, Sold from this batch: ${totalSalesSoFar}`
     } else if (opening_stock_id) {
@@ -86,7 +102,10 @@ export async function POST(request: NextRequest) {
 
       // Verify the opening stock batch belongs to the user's organization
       if (openingStock.organization_id && openingStock.organization_id !== organization_id) {
-        return NextResponse.json({ error: 'Opening stock batch does not belong to your organization' }, { status: 403 })
+        return NextResponse.json(
+          { error: 'Opening stock batch does not belong to your organization' },
+          { status: 403 }
+        )
       }
 
       const { data: existingSales } = await supabaseAdmin
@@ -97,7 +116,8 @@ export async function POST(request: NextRequest) {
         .eq('organization_id', organization_id)
 
       const openingQty = parseFloat(openingStock.quantity.toString())
-      const totalSalesSoFar = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const totalSalesSoFar =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
       availableStock = openingQty - totalSalesSoFar
       stockInfo = `Opening: ${openingQty}, Sold from this batch: ${totalSalesSoFar}`
     } else if (isPastDate) {
@@ -126,63 +146,74 @@ export async function POST(request: NextRequest) {
       const { data: existingSales } = await existingSalesQuery
 
       const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
-      const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
-      const totalSalesSoFar = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const totalRestocking =
+        restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const totalSalesSoFar =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
       availableStock = openingQty + totalRestocking - totalSalesSoFar
       stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold: ${totalSalesSoFar}`
-        } else {
-          // For today: Opening Stock + Restocking - Sales already made today
-          // Quantities only come from opening/closing stock - not from item.quantity
-          let openingStockQuery = supabaseAdmin
-            .from('opening_stock')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-            .eq('organization_id', organization_id)
-          const { data: openingStock } = await openingStockQuery.single()
+    } else {
+      // For today: Opening Stock + Restocking - Sales already made today
+      // Quantities only come from opening/closing stock - not from item.quantity
+      let openingStockQuery = supabaseAdmin
+        .from('opening_stock')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+        .eq('organization_id', organization_id)
+      const { data: openingStock } = await openingStockQuery.single()
 
-          let restockingQuery = supabaseAdmin
-            .from('restocking')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-            .eq('organization_id', organization_id)
-          const { data: restocking } = await restockingQuery
+      let restockingQuery = supabaseAdmin
+        .from('restocking')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+        .eq('organization_id', organization_id)
+      const { data: restocking } = await restockingQuery
 
-          let existingSalesQuery = supabaseAdmin
-            .from('sales')
-            .select('quantity')
-            .eq('item_id', item_id)
-            .eq('date', date)
-            .eq('organization_id', organization_id)
-          const { data: existingSales } = await existingSalesQuery
+      let existingSalesQuery = supabaseAdmin
+        .from('sales')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+        .eq('organization_id', organization_id)
+      const { data: existingSales } = await existingSalesQuery
 
-          const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
-          const totalRestocking = restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
-          const totalSalesSoFar = existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const openingQty = openingStock ? parseFloat(openingStock.quantity.toString()) : 0
+      const totalRestocking =
+        restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const totalSalesSoFar =
+        existingSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
-          availableStock = openingQty + totalRestocking - totalSalesSoFar
-          stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesSoFar}`
-        }
+      availableStock = openingQty + totalRestocking - totalSalesSoFar
+      stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesSoFar}`
+    }
 
     if (availableStock < parseFloat(quantity)) {
       // For batch-specific sales, show batch-specific error message
       if (restocking_id || opening_stock_id) {
         return NextResponse.json(
-          { error: `Cannot record sales of ${quantity}. Available in this batch: ${availableStock}` },
+          {
+            error: `Cannot record sales of ${quantity}. Available in this batch: ${availableStock}`,
+          },
           { status: 400 }
         )
       }
       return NextResponse.json(
-        { error: `Cannot record sales of ${quantity}. Available stock: ${availableStock} (${stockInfo})` },
+        {
+          error: `Cannot record sales of ${quantity}. Available stock: ${availableStock} (${stockInfo})`,
+        },
         { status: 400 }
       )
     }
 
     // Validate batch selection
     if (restocking_id && opening_stock_id) {
-      return NextResponse.json({ error: 'Cannot specify both restocking_id and opening_stock_id' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cannot specify both restocking_id and opening_stock_id' },
+        { status: 400 }
+      )
     }
 
     // Create sale record with batch tracking
@@ -214,7 +245,7 @@ export async function POST(request: NextRequest) {
       try {
         // Recalculate closing stock for this date
         await recalculateClosingStock(date, user_id)
-        
+
         // Cascade update opening stock for subsequent days
         await cascadeUpdateFromDate(date, user_id)
       } catch (error) {
@@ -229,4 +260,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

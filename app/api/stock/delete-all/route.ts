@@ -14,15 +14,24 @@ export async function POST() {
     })
 
     const deletions = await Promise.all([
-      supabaseAdmin.from('waste_spoilage').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabaseAdmin
+        .from('waste_spoilage')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'),
       supabaseAdmin.from('sales').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
       supabaseAdmin.from('restocking').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-      supabaseAdmin.from('closing_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-      supabaseAdmin.from('opening_stock').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabaseAdmin
+        .from('closing_stock')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'),
+      supabaseAdmin
+        .from('opening_stock')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'),
     ])
-    const errors = deletions.filter((result) => result.error)
+    const errors = deletions.filter(result => result.error)
     if (errors.length > 0) {
-      const errorMessages = errors.map((e) => e.error?.message).filter(Boolean)
+      const errorMessages = errors.map(e => e.error?.message).filter(Boolean)
       return NextResponse.json(
         { error: `Failed to delete some data: ${errorMessages.join(', ')}` },
         { status: 500 }
@@ -31,9 +40,7 @@ export async function POST() {
 
     const { data: items } = await supabaseAdmin.from('items').select('id')
     if (items && items.length > 0) {
-      const { error: updateError } = await supabaseAdmin
-        .from('items')
-        .update({ quantity: 0 })
+      const { error: updateError } = await supabaseAdmin.from('items').update({ quantity: 0 })
 
       if (updateError) {
         console.error('Failed to reset item quantities:', updateError)
@@ -42,7 +49,8 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: 'All stock data deleted successfully. You can now start fresh with opening stock from December 1st.',
+      message:
+        'All stock data deleted successfully. You can now start fresh with opening stock from December 1st.',
       deleted: {
         opening_stock: true,
         closing_stock: true,
@@ -58,4 +66,3 @@ export async function POST() {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

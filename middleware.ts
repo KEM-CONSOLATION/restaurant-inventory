@@ -44,15 +44,11 @@ export async function middleware(request: NextRequest) {
       ) {
         // Clear auth cookies and redirect to login
         const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url))
-        
+
         // Clear all Supabase auth cookies
-        const cookieNames = [
-          'sb-access-token',
-          'sb-refresh-token',
-          'sb-auth-token',
-        ]
-        
-        cookieNames.forEach((cookieName) => {
+        const cookieNames = ['sb-access-token', 'sb-refresh-token', 'sb-auth-token']
+
+        cookieNames.forEach(cookieName => {
           response.cookies.delete(cookieName)
           response.cookies.delete(`${cookieName}-expires`)
         })
@@ -60,7 +56,7 @@ export async function middleware(request: NextRequest) {
         // Also clear cookies with the project ref
         const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1]?.split('.')[0]
         if (projectRef) {
-          cookieNames.forEach((cookieName) => {
+          cookieNames.forEach(cookieName => {
             response.cookies.delete(`${projectRef}-auth-token`)
             response.cookies.delete(`${projectRef}-auth-token-code-verifier`)
           })
@@ -96,15 +92,11 @@ export async function middleware(request: NextRequest) {
       (error?.status === 400 && error?.message?.includes('Refresh Token'))
     ) {
       const response = NextResponse.redirect(new URL('/login?error=session_expired', request.url))
-      
+
       // Clear auth cookies
-      const cookieNames = [
-        'sb-access-token',
-        'sb-refresh-token',
-        'sb-auth-token',
-      ]
-      
-      cookieNames.forEach((cookieName) => {
+      const cookieNames = ['sb-access-token', 'sb-refresh-token', 'sb-auth-token']
+
+      cookieNames.forEach(cookieName => {
         response.cookies.delete(cookieName)
         response.cookies.delete(`${cookieName}-expires`)
       })
@@ -118,8 +110,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
-

@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Sale, Item, Expense, Organization } from '@/types/database'
 import { format } from 'date-fns'
-import { exportToExcel, exportToPDF, exportToCSV, formatCurrency, formatDate } from '@/lib/export-utils'
+import {
+  exportToExcel,
+  exportToPDF,
+  exportToCSV,
+  formatCurrency,
+  formatDate,
+} from '@/lib/export-utils'
 
 export default function ProfitLossView() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -16,15 +22,17 @@ export default function ProfitLossView() {
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
   const [organization, setOrganization] = useState<Organization | null>(null)
-  const [salesDetails, setSalesDetails] = useState<Array<{
-    item: Item
-    quantity: number
-    sellingPrice: number
-    costPrice: number
-    totalSelling: number
-    totalCost: number
-    profit: number
-  }>>([])
+  const [salesDetails, setSalesDetails] = useState<
+    Array<{
+      item: Item
+      quantity: number
+      sellingPrice: number
+      costPrice: number
+      totalSelling: number
+      totalCost: number
+      profit: number
+    }>
+  >([])
 
   useEffect(() => {
     calculateProfitLoss()
@@ -33,14 +41,16 @@ export default function ProfitLossView() {
 
   const fetchOrganization = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('organization_id')
           .eq('id', user.id)
           .single()
-        
+
         if (profile?.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
@@ -59,7 +69,9 @@ export default function ProfitLossView() {
     setLoading(true)
     try {
       // Get user's organization_id for filtering
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       let organizationId: string | null = null
       if (user) {
         const { data: profile } = await supabase
@@ -89,25 +101,28 @@ export default function ProfitLossView() {
         .select('*, item:items(*)')
         .gte('date', startDate)
         .lte('date', endDate)
-      
+
       if (organizationId) {
         salesQuery = salesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: sales } = await salesQuery
 
       if (!sales) return
 
       // Group sales by item and calculate totals
-      const itemMap = new Map<string, {
-        item: Item
-        quantity: number
-        sellingPrice: number
-        costPrice: number
-        totalSelling: number
-        totalCost: number
-        profit: number
-      }>()
+      const itemMap = new Map<
+        string,
+        {
+          item: Item
+          quantity: number
+          sellingPrice: number
+          costPrice: number
+          totalSelling: number
+          totalCost: number
+          profit: number
+        }
+      >()
 
       sales.forEach((sale: Sale & { item?: Item }) => {
         if (!sale.item) return
@@ -148,14 +163,15 @@ export default function ProfitLossView() {
         .select('amount')
         .gte('date', startDate)
         .lte('date', endDate)
-      
+
       if (organizationId) {
         expensesQuery = expensesQuery.eq('organization_id', organizationId)
       }
-      
+
       const { data: expenses } = await expensesQuery
 
-      const expensesTotal = expenses?.reduce((sum: number, exp: { amount: number }) => sum + (exp.amount || 0), 0) || 0
+      const expensesTotal =
+        expenses?.reduce((sum: number, exp: { amount: number }) => sum + (exp.amount || 0), 0) || 0
       setTotalExpenses(expensesTotal)
       setNetProfit(profitTotal - expensesTotal)
     } catch (error) {
@@ -165,11 +181,21 @@ export default function ProfitLossView() {
   }
 
   const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
-    const dateRangeLabel = startDate === endDate 
-      ? formatDate(startDate)
-      : `${formatDate(startDate)} - ${formatDate(endDate)}`
+    const dateRangeLabel =
+      startDate === endDate
+        ? formatDate(startDate)
+        : `${formatDate(startDate)} - ${formatDate(endDate)}`
 
-    const headers = ['Item', 'Quantity', 'Unit', 'Selling Price', 'Cost Price', 'Total Sales', 'Total Cost', 'Profit']
+    const headers = [
+      'Item',
+      'Quantity',
+      'Unit',
+      'Selling Price',
+      'Cost Price',
+      'Total Sales',
+      'Total Cost',
+      'Profit',
+    ]
     const data = salesDetails.map(detail => [
       detail.item.name,
       detail.quantity,
@@ -225,7 +251,12 @@ export default function ProfitLossView() {
               title="Export to Excel"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               Excel
             </button>
@@ -235,7 +266,12 @@ export default function ProfitLossView() {
               title="Export to PDF"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
               </svg>
               PDF
             </button>
@@ -245,7 +281,12 @@ export default function ProfitLossView() {
               title="Export to CSV"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               CSV
             </button>
@@ -253,7 +294,10 @@ export default function ProfitLossView() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="profit-start-date" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="profit-start-date"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Start Date
             </label>
             <input
@@ -261,7 +305,7 @@ export default function ProfitLossView() {
               type="date"
               value={startDate}
               max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => {
+              onChange={e => {
                 const newStartDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newStartDate > today) {
@@ -278,7 +322,10 @@ export default function ProfitLossView() {
             />
           </div>
           <div>
-            <label htmlFor="profit-end-date" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="profit-end-date"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               End Date
             </label>
             <input
@@ -287,7 +334,7 @@ export default function ProfitLossView() {
               value={endDate}
               max={format(new Date(), 'yyyy-MM-dd')}
               min={startDate}
-              onChange={(e) => {
+              onChange={e => {
                 const newEndDate = e.target.value
                 const today = format(new Date(), 'yyyy-MM-dd')
                 if (newEndDate > today) {
@@ -306,7 +353,10 @@ export default function ProfitLossView() {
         </div>
         <div className="flex items-center justify-between mt-2">
           <p className="text-sm text-gray-500">
-            Showing data from {startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} to ${formatDate(endDate)}`}
+            Showing data from{' '}
+            {startDate === endDate
+              ? formatDate(startDate)
+              : `${formatDate(startDate)} to ${formatDate(endDate)}`}
           </p>
           <button
             type="button"
@@ -319,7 +369,12 @@ export default function ProfitLossView() {
             title="Reset to Today"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             Reset to Today
           </button>
@@ -342,35 +397,69 @@ export default function ProfitLossView() {
               <p className="text-sm text-red-600 mb-1">Total Cost</p>
               <p className="text-2xl font-bold text-red-900">₦{totalCost.toFixed(2)}</p>
             </div>
-            <div className={`border rounded-lg p-4 ${totalProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-              <p className={`text-sm mb-1 ${totalProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>Gross Profit</p>
-              <p className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-900' : 'text-orange-900'}`}>
+            <div
+              className={`border rounded-lg p-4 ${totalProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}
+            >
+              <p
+                className={`text-sm mb-1 ${totalProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}
+              >
+                Gross Profit
+              </p>
+              <p
+                className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-900' : 'text-orange-900'}`}
+              >
                 ₦{totalProfit.toFixed(2)}
               </p>
             </div>
-            <div className={`border rounded-lg p-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}>
-              <p className={`text-sm mb-1 ${netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}>Net Profit</p>
-              <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-900' : 'text-orange-900'}`}>
+            <div
+              className={`border rounded-lg p-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'}`}
+            >
+              <p
+                className={`text-sm mb-1 ${netProfit >= 0 ? 'text-green-600' : 'text-orange-600'}`}
+              >
+                Net Profit
+              </p>
+              <p
+                className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-900' : 'text-orange-900'}`}
+              >
                 ₦{netProfit.toFixed(2)}
               </p>
-              <p className="text-xs text-gray-500 mt-1">(After expenses: ₦{totalExpenses.toFixed(2)})</p>
+              <p className="text-xs text-gray-500 mt-1">
+                (After expenses: ₦{totalExpenses.toFixed(2)})
+              </p>
             </div>
           </div>
 
           {salesDetails.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Item-wise Profit Breakdown</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Item-wise Profit Breakdown
+              </h3>
               <div className="overflow-x-auto -mx-6 px-6">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Selling Price</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost Price</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Sales</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Cost</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Profit</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Item
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Quantity
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Selling Price
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Cost Price
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Total Sales
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Total Cost
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Profit
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -394,9 +483,11 @@ export default function ProfitLossView() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           ₦{detail.totalCost.toFixed(2)}
                         </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                          detail.profit >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                            detail.profit >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
                           ₦{detail.profit.toFixed(2)}
                         </td>
                       </tr>
@@ -411,4 +502,3 @@ export default function ProfitLossView() {
     </div>
   )
 }
-

@@ -38,16 +38,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     const slug = name
       .toLowerCase()
@@ -56,16 +52,16 @@ export async function PUT(request: NextRequest) {
       .replace(/[\s_-]+/g, '-')
       .replace(/^-+|-+$/g, '')
 
-    const updateData: any = { 
-      name, 
-      slug, 
-      updated_at: new Date().toISOString() 
+    const updateData: any = {
+      name,
+      slug,
+      updated_at: new Date().toISOString(),
     }
-    
+
     if (logo_url !== undefined) {
       updateData.logo_url = logo_url || null
     }
-    
+
     if (brand_color !== undefined) {
       updateData.brand_color = brand_color || null
     }
@@ -90,4 +86,3 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

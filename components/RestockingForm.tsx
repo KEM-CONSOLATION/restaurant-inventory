@@ -7,7 +7,9 @@ import { format } from 'date-fns'
 
 export default function RestockingForm() {
   const [items, setItems] = useState<Item[]>([])
-  const [restockings, setRestockings] = useState<(Restocking & { item?: Item; recorded_by_profile?: Profile })[]>([])
+  const [restockings, setRestockings] = useState<
+    (Restocking & { item?: Item; recorded_by_profile?: Profile })[]
+  >([])
   const [selectedItem, setSelectedItem] = useState('')
   const [quantity, setQuantity] = useState('')
   const [costPrice, setCostPrice] = useState('')
@@ -24,7 +26,9 @@ export default function RestockingForm() {
 
   const fetchRestockings = useCallback(async () => {
     // Get user's organization_id for filtering
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     let organizationId: string | null = null
     if (user) {
       const { data: profile } = await supabase
@@ -35,19 +39,17 @@ export default function RestockingForm() {
       organizationId = profile?.organization_id || null
     }
 
-    let restockingQuery = supabase
-      .from('restocking')
-      .select(`
+    let restockingQuery = supabase.from('restocking').select(`
         *,
         item:items(*),
         recorded_by_profile:profiles(*)
       `)
-    
+
     // Filter by organization_id
     if (organizationId) {
       restockingQuery = restockingQuery.eq('organization_id', organizationId)
     }
-    
+
     // Filter by date if filterDate is set
     if (filterDate) {
       // Normalize date format
@@ -63,7 +65,7 @@ export default function RestockingForm() {
       }
       restockingQuery = restockingQuery.eq('date', normalizedDate)
     }
-    
+
     const { data, error } = await restockingQuery
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -105,7 +107,9 @@ export default function RestockingForm() {
   }, [selectedItem, date, items])
 
   const checkUserRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -144,7 +148,8 @@ export default function RestockingForm() {
         .eq('item_id', selectedItem)
         .eq('date', date)
 
-      const totalRestocking = restockingData?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const totalRestocking =
+        restockingData?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
 
       // Get total sales for the date
       const { data: salesData } = await supabase
@@ -153,7 +158,8 @@ export default function RestockingForm() {
         .eq('item_id', selectedItem)
         .eq('date', date)
 
-      const totalSales = salesData?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const totalSales =
+        salesData?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
       // Current total = opening stock + restocking - sales
       const current = openingQty + totalRestocking - totalSales
@@ -181,7 +187,10 @@ export default function RestockingForm() {
 
       // Superadmins cannot perform restocking operations
       if (userRole === 'superadmin') {
-        setMessage({ type: 'error', text: 'Superadmins cannot perform restocking operations. Please contact the organization admin.' })
+        setMessage({
+          type: 'error',
+          text: 'Superadmins cannot perform restocking operations. Please contact the organization admin.',
+        })
         setLoading(false)
         return
       }
@@ -189,12 +198,15 @@ export default function RestockingForm() {
       // Restrict restocking to today only for staff, allow past dates for admins
       const today = format(new Date(), 'yyyy-MM-dd')
       if (userRole !== 'admin' && date !== today) {
-        setMessage({ type: 'error', text: 'Restocking can only be recorded for today\'s date. Please use today\'s date.' })
+        setMessage({
+          type: 'error',
+          text: "Restocking can only be recorded for today's date. Please use today's date.",
+        })
         setDate(today) // Reset to today
         setLoading(false)
         return
       }
-      
+
       // Prevent future dates for everyone
       if (date > today) {
         setMessage({ type: 'error', text: 'Cannot record restocking for future dates.' })
@@ -212,7 +224,10 @@ export default function RestockingForm() {
 
       // Validate that restocking doesn't result in negative stock
       if (currentTotal !== null && currentTotal < 0) {
-        setMessage({ type: 'error', text: 'Cannot restock: Current stock is negative. Please check your opening stock and sales records.' })
+        setMessage({
+          type: 'error',
+          text: 'Cannot restock: Current stock is negative. Please check your opening stock and sales records.',
+        })
         setLoading(false)
         return
       }
@@ -222,35 +237,35 @@ export default function RestockingForm() {
       // Price changes only take effect on next day's opening stock (via auto-create-opening API)
       if (costPrice || sellingPrice) {
         const updateData: { cost_price?: number; selling_price?: number } = {}
-        
+
         if (costPrice) {
           const costPriceValue = parseFloat(costPrice)
           if (!isNaN(costPriceValue) && costPriceValue >= 0) {
             updateData.cost_price = costPriceValue
           }
         }
-        
+
         if (sellingPrice) {
           const sellingPriceValue = parseFloat(sellingPrice)
           if (!isNaN(sellingPriceValue) && sellingPriceValue >= 0) {
             updateData.selling_price = sellingPriceValue
           }
         }
-        
+
         if (Object.keys(updateData).length > 0) {
           // Update item prices (for future reference, but doesn't affect past records)
           const { error: itemPriceError } = await supabase
             .from('items')
             .update(updateData)
             .eq('id', selectedItem)
-          
+
           if (itemPriceError) {
             console.error('Failed to update item prices:', itemPriceError)
             // Don't throw - restocking can still succeed even if price update fails
           }
         }
       }
-      
+
       // Create opening stock if it doesn't exist (for quantity tracking)
       // But we don't set prices on it - prices come from previous day's opening stock or item
       // This ensures past records keep their original prices
@@ -260,21 +275,23 @@ export default function RestockingForm() {
         .eq('item_id', selectedItem)
         .eq('date', date)
         .limit(1)
-      
+
       if (!existingOpeningStock || existingOpeningStock.length === 0) {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser()
         if (currentUser) {
           const { data: profile } = await supabase
             .from('profiles')
             .select('organization_id')
             .eq('id', currentUser.id)
             .single()
-          
+
           // Get previous day's opening stock to preserve prices
           const prevDate = new Date(date + 'T00:00:00')
           prevDate.setDate(prevDate.getDate() - 1)
           const prevDateStr = prevDate.toISOString().split('T')[0]
-          
+
           let prevOpeningStockQuery = supabase
             .from('opening_stock')
             .select('cost_price, selling_price')
@@ -282,17 +299,20 @@ export default function RestockingForm() {
             .eq('date', prevDateStr)
             .limit(1)
           if (profile?.organization_id) {
-            prevOpeningStockQuery = prevOpeningStockQuery.eq('organization_id', profile.organization_id)
+            prevOpeningStockQuery = prevOpeningStockQuery.eq(
+              'organization_id',
+              profile.organization_id
+            )
           }
           const { data: prevOpeningStock } = await prevOpeningStockQuery
-          
+
           // Get item to use as fallback if no previous opening stock
           const { data: item } = await supabase
             .from('items')
             .select('cost_price, selling_price')
             .eq('id', selectedItem)
             .single()
-          
+
           // Create opening stock with quantity 0 (if it doesn't exist)
           // Use previous day's opening stock prices, or item's prices as fallback
           // Do NOT use restocking prices - they only affect the next day
@@ -313,7 +333,7 @@ export default function RestockingForm() {
             notes: 'Auto-created from restocking',
             organization_id: profile?.organization_id || null,
           }
-          
+
           // Use previous day's prices if available, otherwise item's prices
           // This preserves price history and prevents restocking from affecting current date
           if (prevOpeningStock && prevOpeningStock.length > 0) {
@@ -323,13 +343,13 @@ export default function RestockingForm() {
             openingStockData.cost_price = item.cost_price ?? null
             openingStockData.selling_price = item.selling_price ?? null
           }
-          
+
           const { error: createOpeningStockError } = await supabase
             .from('opening_stock')
             .upsert(openingStockData, {
               onConflict: 'item_id,date,organization_id',
             })
-          
+
           if (createOpeningStockError) {
             console.error('Failed to create opening stock:', createOpeningStockError)
             // Don't throw - restocking can still succeed
@@ -379,7 +399,7 @@ export default function RestockingForm() {
           .select('organization_id')
           .eq('id', user.id)
           .single()
-        
+
         // Create new restocking
         const { error } = await supabase.from('restocking').insert({
           item_id: selectedItem,
@@ -422,7 +442,10 @@ export default function RestockingForm() {
 
     // Only allow editing today's restocking for staff, but allow past dates for admins
     if (userRole !== 'admin' && restocking.date !== today) {
-      setMessage({ type: 'error', text: 'Can only edit restocking records for today. Past dates cannot be modified.' })
+      setMessage({
+        type: 'error',
+        text: 'Can only edit restocking records for today. Past dates cannot be modified.',
+      })
       return
     }
     setEditingRestocking(restocking)
@@ -493,31 +516,39 @@ export default function RestockingForm() {
 
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date {userRole !== 'admin' && userRole !== 'superadmin' && <span className="text-xs text-gray-500">(Today only)</span>}
-            {(userRole === 'admin' || userRole === 'superadmin') && <span className="text-xs text-gray-500">(Admin: Can select past dates)</span>}
+            Date{' '}
+            {userRole !== 'admin' && userRole !== 'superadmin' && (
+              <span className="text-xs text-gray-500">(Today only)</span>
+            )}
+            {(userRole === 'admin' || userRole === 'superadmin') && (
+              <span className="text-xs text-gray-500">(Admin: Can select past dates)</span>
+            )}
           </label>
           <input
             id="date"
             type="date"
             value={date}
-            onChange={(e) => {
+            onChange={e => {
               const selectedDate = e.target.value
               const today = format(new Date(), 'yyyy-MM-dd')
-              
+
               // Staff can only use today's date
               if (userRole !== 'admin' && selectedDate !== today) {
-                setMessage({ type: 'error', text: 'Restocking can only be recorded for today\'s date.' })
+                setMessage({
+                  type: 'error',
+                  text: "Restocking can only be recorded for today's date.",
+                })
                 setDate(today)
                 return
               }
-              
+
               // Prevent future dates for everyone
               if (selectedDate > today) {
                 setMessage({ type: 'error', text: 'Cannot record restocking for future dates.' })
                 setDate(today)
                 return
               }
-              
+
               setDate(selectedDate)
               setMessage(null) // Clear any previous messages
             }}
@@ -525,13 +556,15 @@ export default function RestockingForm() {
             required
             disabled={userRole !== 'admin' && userRole !== 'superadmin'}
             className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 ${
-              userRole !== 'admin' && userRole !== 'superadmin' ? 'bg-gray-50 cursor-not-allowed' : ''
+              userRole !== 'admin' && userRole !== 'superadmin'
+                ? 'bg-gray-50 cursor-not-allowed'
+                : ''
             }`}
             readOnly={userRole !== 'admin' && userRole !== 'superadmin'}
           />
           <p className="mt-1 text-xs text-gray-500">
-            {userRole === 'admin' || userRole === 'superadmin' 
-              ? 'Admins can record restocking for past dates to backfill data. Staff can only record for today.' 
+            {userRole === 'admin' || userRole === 'superadmin'
+              ? 'Admins can record restocking for past dates to backfill data. Staff can only record for today.'
               : 'Restocking can only be recorded for today to avoid confusion'}
           </p>
         </div>
@@ -543,12 +576,12 @@ export default function RestockingForm() {
           <select
             id="item"
             value={selectedItem}
-            onChange={(e) => setSelectedItem(e.target.value)}
+            onChange={e => setSelectedItem(e.target.value)}
             required
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
           >
             <option value="">Select an item</option>
-            {items.map((item) => (
+            {items.map(item => (
               <option key={item.id} value={item.id}>
                 {item.name} ({item.unit})
               </option>
@@ -556,19 +589,33 @@ export default function RestockingForm() {
           </select>
           {selectedItem && openingStock !== null && (
             <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
-              <p>Opening Stock: <span className="font-medium">{openingStock}</span> {items.find(item => item.id === selectedItem)?.unit || ''}</p>
+              <p>
+                Opening Stock: <span className="font-medium">{openingStock}</span>{' '}
+                {items.find(item => item.id === selectedItem)?.unit || ''}
+              </p>
               {currentTotal !== null && (
-                <p className="mt-1">Current Total (after restocks & sales): <span className="font-medium">{currentTotal.toFixed(2)}</span> {items.find(item => item.id === selectedItem)?.unit || ''}</p>
+                <p className="mt-1">
+                  Current Total (after restocks & sales):{' '}
+                  <span className="font-medium">{currentTotal.toFixed(2)}</span>{' '}
+                  {items.find(item => item.id === selectedItem)?.unit || ''}
+                </p>
               )}
-              {selectedItem && (() => {
-                const item = items.find(i => i.id === selectedItem)
-                return item ? (
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <p>Current Cost Price: <span className="font-medium">₦{item.cost_price.toFixed(2)}</span></p>
-                    <p className="mt-1">Current Selling Price: <span className="font-medium">₦{item.selling_price.toFixed(2)}</span></p>
-                  </div>
-                ) : null
-              })()}
+              {selectedItem &&
+                (() => {
+                  const item = items.find(i => i.id === selectedItem)
+                  return item ? (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p>
+                        Current Cost Price:{' '}
+                        <span className="font-medium">₦{item.cost_price.toFixed(2)}</span>
+                      </p>
+                      <p className="mt-1">
+                        Current Selling Price:{' '}
+                        <span className="font-medium">₦{item.selling_price.toFixed(2)}</span>
+                      </p>
+                    </div>
+                  ) : null
+                })()}
             </div>
           )}
         </div>
@@ -582,19 +629,22 @@ export default function RestockingForm() {
             type="number"
             step="0.01"
             value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
+            onChange={e => setQuantity(e.target.value)}
             required
             min="0.01"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
             placeholder="0.00"
           />
-          <p className="mt-1 text-xs text-gray-500">Enter the quantity to add to the opening stock</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Enter the quantity to add to the opening stock
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="cost_price" className="block text-sm font-medium text-gray-700 mb-1">
-              Cost Price (₦) <span className="text-xs text-gray-500">(Optional - updates item price)</span>
+              Cost Price (₦){' '}
+              <span className="text-xs text-gray-500">(Optional - updates item price)</span>
             </label>
             <input
               id="cost_price"
@@ -602,7 +652,7 @@ export default function RestockingForm() {
               step="0.01"
               min="0"
               value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
+              onChange={e => setCostPrice(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
               placeholder="0.00"
             />
@@ -610,7 +660,8 @@ export default function RestockingForm() {
           </div>
           <div>
             <label htmlFor="selling_price" className="block text-sm font-medium text-gray-700 mb-1">
-              Selling Price (₦) <span className="text-xs text-gray-500">(Optional - updates item price)</span>
+              Selling Price (₦){' '}
+              <span className="text-xs text-gray-500">(Optional - updates item price)</span>
             </label>
             <input
               id="selling_price"
@@ -618,7 +669,7 @@ export default function RestockingForm() {
               step="0.01"
               min="0"
               value={sellingPrice}
-              onChange={(e) => setSellingPrice(e.target.value)}
+              onChange={e => setSellingPrice(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
               placeholder="0.00"
             />
@@ -633,7 +684,7 @@ export default function RestockingForm() {
           <textarea
             id="notes"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={e => setNotes(e.target.value)}
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-black"
             placeholder="Any additional notes..."
@@ -672,7 +723,7 @@ export default function RestockingForm() {
               type="date"
               id="filterDate"
               value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
+              onChange={e => setFilterDate(e.target.value)}
               className="px-3 py-1.5 border  text-gray-900 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
             {filterDate && (
@@ -691,19 +742,33 @@ export default function RestockingForm() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity Added</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost Price (₦)</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Selling Price (₦)</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Date
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Item
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Quantity Added
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Cost Price (₦)
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Selling Price (₦)
+                  </th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    Recorded By
+                  </th>
                   {(userRole === 'admin' || userRole === 'superadmin') && (
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {restockings.map((restocking) => (
+                {restockings.map(restocking => (
                   <tr key={restocking.id}>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
                       {format(new Date(restocking.date), 'MMM dd, yyyy')}
@@ -715,29 +780,45 @@ export default function RestockingForm() {
                       +{restocking.quantity} {restocking.item?.unit || ''}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {restocking.cost_price !== null && restocking.cost_price !== undefined 
-                        ? `₦${restocking.cost_price.toFixed(2)}` 
-                        : restocking.item?.cost_price 
-                          ? `₦${restocking.item.cost_price.toFixed(2)}` 
+                      {restocking.cost_price !== null && restocking.cost_price !== undefined
+                        ? `₦${restocking.cost_price.toFixed(2)}`
+                        : restocking.item?.cost_price
+                          ? `₦${restocking.item.cost_price.toFixed(2)}`
                           : '-'}
-                      {restocking.cost_price !== null && restocking.cost_price !== undefined && restocking.item && 
-                       restocking.cost_price !== restocking.item.cost_price && (
-                        <span className="ml-1 text-xs text-green-600" title="Price updated during restocking">●</span>
-                      )}
+                      {restocking.cost_price !== null &&
+                        restocking.cost_price !== undefined &&
+                        restocking.item &&
+                        restocking.cost_price !== restocking.item.cost_price && (
+                          <span
+                            className="ml-1 text-xs text-green-600"
+                            title="Price updated during restocking"
+                          >
+                            ●
+                          </span>
+                        )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {restocking.selling_price !== null && restocking.selling_price !== undefined 
-                        ? `₦${restocking.selling_price.toFixed(2)}` 
-                        : restocking.item?.selling_price 
-                          ? `₦${restocking.item.selling_price.toFixed(2)}` 
+                      {restocking.selling_price !== null && restocking.selling_price !== undefined
+                        ? `₦${restocking.selling_price.toFixed(2)}`
+                        : restocking.item?.selling_price
+                          ? `₦${restocking.item.selling_price.toFixed(2)}`
                           : '-'}
-                      {restocking.selling_price !== null && restocking.selling_price !== undefined && restocking.item && 
-                       restocking.selling_price !== restocking.item.selling_price && (
-                        <span className="ml-1 text-xs text-green-600" title="Price updated during restocking">●</span>
-                      )}
+                      {restocking.selling_price !== null &&
+                        restocking.selling_price !== undefined &&
+                        restocking.item &&
+                        restocking.selling_price !== restocking.item.selling_price && (
+                          <span
+                            className="ml-1 text-xs text-green-600"
+                            title="Price updated during restocking"
+                          >
+                            ●
+                          </span>
+                        )}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                      {restocking.recorded_by_profile?.full_name || restocking.recorded_by_profile?.email || 'Unknown'}
+                      {restocking.recorded_by_profile?.full_name ||
+                        restocking.recorded_by_profile?.email ||
+                        'Unknown'}
                     </td>
                     {(userRole === 'admin' || userRole === 'superadmin') && (
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
@@ -762,11 +843,12 @@ export default function RestockingForm() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
-            {filterDate ? `No restocking records found for ${format(new Date(filterDate), 'MMM dd, yyyy')}` : 'No restocking records found'}
+            {filterDate
+              ? `No restocking records found for ${format(new Date(filterDate), 'MMM dd, yyyy')}`
+              : 'No restocking records found'}
           </div>
         )}
       </div>
     </div>
   )
 }
-

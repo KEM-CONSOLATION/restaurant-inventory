@@ -24,6 +24,7 @@ The notifications system requires a new database table. Run this SQL script in y
 4. Click **Run** to execute
 
 This will create:
+
 - `notifications` table
 - Required indexes for performance
 - Row Level Security (RLS) policies
@@ -45,11 +46,13 @@ If the build succeeds, you're ready to test!
 ### 1. Export & Reporting
 
 **Where to Test:**
+
 - **Profit & Loss Page**: `/dashboard/profit-loss`
 - **Expenses Page**: `/dashboard/expenses`
 - **Sales Reports Page**: `/dashboard/reports` (already had exports, now enhanced)
 
 **What to Test:**
+
 1. Navigate to Profit & Loss page
 2. Select a date with sales data
 3. Click **Excel**, **PDF**, or **CSV** buttons
@@ -60,6 +63,7 @@ If the build succeeds, you're ready to test!
    - Summary rows are included
 
 **Expected Results:**
+
 - ✅ Files download successfully
 - ✅ Data matches what's displayed on screen
 - ✅ Organization name appears in header
@@ -70,9 +74,11 @@ If the build succeeds, you're ready to test!
 ### 2. Notifications & Alerts
 
 **Where to Test:**
+
 - **Header**: Notification bell icon (top right of dashboard)
 
 **What to Test:**
+
 1. Check if notification bell appears in header (for non-superadmin users)
 2. Click the bell to open notification center
 3. Verify empty state shows "No notifications"
@@ -97,6 +103,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 ```
 
 **Expected Results:**
+
 - ✅ Notification bell appears in header
 - ✅ Unread count badge shows when notifications exist
 - ✅ Clicking bell opens notification dropdown
@@ -104,6 +111,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 - ✅ "Mark all as read" button works
 
 **Next Steps for Notifications:**
+
 - ✅ **DONE**: Integrated with `LowStockAlerts` component to auto-create notifications
 - Add email notifications (requires email service setup)
 - Add scheduled notifications (requires cron job or scheduled function)
@@ -113,10 +121,12 @@ curl -X POST http://localhost:3000/api/notifications/create \
 ### 3. Inventory Valuation
 
 **Where to Test:**
+
 - **New Page**: `/dashboard/inventory-valuation`
 - **Navigation**: Added to sidebar under "Reports" section
 
 **What to Test:**
+
 1. Navigate to Inventory Valuation page
 2. Select a date
 3. Verify calculations:
@@ -128,6 +138,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 5. Verify only items with quantity > 0 are shown
 
 **Expected Results:**
+
 - ✅ Page loads without errors
 - ✅ Calculations are accurate
 - ✅ Date filter works correctly
@@ -135,6 +146,7 @@ curl -X POST http://localhost:3000/api/notifications/create \
 - ✅ Table shows items sorted by cost value (highest first)
 
 **Calculation Logic:**
+
 - Current Quantity = Opening Stock + Restocking - Sales (for selected date)
 - Cost Value = Current Quantity × Cost Price
 - Selling Value = Current Quantity × Selling Price
@@ -152,7 +164,9 @@ To automatically create notifications when stock is low, update `components/LowS
 ```typescript
 // Example: Add this when low stock is detected
 const createNotification = async (item: Item, currentStock: number) => {
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return
 
   await fetch('/api/notifications/create', {
@@ -174,6 +188,7 @@ const createNotification = async (item: Item, currentStock: number) => {
 ### Email Notifications (Future)
 
 To add email notifications, you'll need:
+
 1. Email service (SendGrid, Resend, or Supabase Edge Functions)
 2. Update notification creation to also send emails
 3. Add email preferences to user settings
@@ -209,6 +224,7 @@ CREATE TABLE notifications (
 **Issue**: Export buttons don't download files
 
 **Solutions**:
+
 1. Check browser console for errors
 2. Verify `xlsx`, `jspdf`, and `jspdf-autotable` are installed: `npm list xlsx jspdf jspdf-autotable`
 3. Check if browser blocks downloads (some browsers require user interaction)
@@ -218,6 +234,7 @@ CREATE TABLE notifications (
 **Issue**: Notification bell doesn't show or notifications don't load
 
 **Solutions**:
+
 1. Verify `notifications` table exists in database
 2. Check RLS policies are set correctly
 3. Verify user has `organization_id` set
@@ -229,6 +246,7 @@ CREATE TABLE notifications (
 **Issue**: All values show as zero
 
 **Solutions**:
+
 1. Verify you have opening stock records for the selected date
 2. Check that items have `cost_price` and `selling_price` set
 3. Verify `organization_id` is set correctly on all records
@@ -318,5 +336,4 @@ If you encounter issues:
 
 ---
 
-*Last Updated: December 2025*
-
+_Last Updated: December 2025_

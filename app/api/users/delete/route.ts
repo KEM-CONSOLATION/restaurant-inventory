@@ -49,7 +49,10 @@ export async function DELETE(request: NextRequest) {
     // Regular admins can only delete staff in their organization
     if (profile.role === 'admin') {
       if (!profile.organization_id || targetProfile.organization_id !== profile.organization_id) {
-        return NextResponse.json({ error: 'You can only delete staff in your organization' }, { status: 403 })
+        return NextResponse.json(
+          { error: 'You can only delete staff in your organization' },
+          { status: 403 }
+        )
       }
 
       // Admins cannot delete other admins
@@ -65,7 +68,10 @@ export async function DELETE(request: NextRequest) {
 
     // Superadmins can delete anyone except other superadmins
     if (profile.role === 'superadmin' && targetProfile.role === 'superadmin') {
-      return NextResponse.json({ error: 'Superadmins cannot delete other superadmins' }, { status: 403 })
+      return NextResponse.json(
+        { error: 'Superadmins cannot delete other superadmins' },
+        { status: 403 }
+      )
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -76,16 +82,12 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    )
+    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     // Delete user from auth.users (this will cascade delete profile)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
@@ -95,28 +97,37 @@ export async function DELETE(request: NextRequest) {
         error: deleteError,
         message: deleteError.message,
         status: deleteError.status,
-        userId
+        userId,
       })
-      
+
       // Provide more specific error messages
       let errorMessage = deleteError.message || 'Database error deleting user'
-      
+
       // Check for common error patterns
-      if (deleteError.message?.includes('foreign key') || 
-          deleteError.message?.includes('constraint') ||
-          deleteError.message?.includes('violates foreign key') ||
-          deleteError.message?.includes('still referenced')) {
-        errorMessage = 'Cannot delete user: User has associated records (sales, stock, expenses). The database needs to be updated to allow deletion. Please contact support.'
-      } else if (deleteError.message?.includes('permission') || deleteError.message?.includes('unauthorized')) {
+      if (
+        deleteError.message?.includes('foreign key') ||
+        deleteError.message?.includes('constraint') ||
+        deleteError.message?.includes('violates foreign key') ||
+        deleteError.message?.includes('still referenced')
+      ) {
+        errorMessage =
+          'Cannot delete user: User has associated records (sales, stock, expenses). The database needs to be updated to allow deletion. Please contact support.'
+      } else if (
+        deleteError.message?.includes('permission') ||
+        deleteError.message?.includes('unauthorized')
+      ) {
         errorMessage = 'Permission denied: Unable to delete user. Please check your permissions.'
       } else if (deleteError.message?.includes('not found')) {
         errorMessage = 'User not found or already deleted.'
       }
-      
-      return NextResponse.json({ 
-        error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? deleteError.message : undefined
-      }, { status: 400 })
+
+      return NextResponse.json(
+        {
+          error: errorMessage,
+          details: process.env.NODE_ENV === 'development' ? deleteError.message : undefined,
+        },
+        { status: 400 }
+      )
     }
 
     return NextResponse.json({
@@ -126,10 +137,6 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Error in delete user route:', error)
     const errorMessage = error instanceof Error ? error.message : 'Database error deleting user'
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-

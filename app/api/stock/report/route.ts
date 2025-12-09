@@ -16,11 +16,13 @@ export async function GET(request: NextRequest) {
 
     // Get authenticated user from session
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     const { searchParams } = new URL(request.url)
     let date = searchParams.get('date') || new Date().toISOString().split('T')[0]
-    
+
     // Normalize date format to YYYY-MM-DD (handle any format variations)
     if (date.includes('T')) {
       date = date.split('T')[0]
@@ -35,7 +37,10 @@ export async function GET(request: NextRequest) {
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
     if (date > today) {
-      return NextResponse.json({ error: 'Cannot generate reports for future dates' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Cannot generate reports for future dates' },
+        { status: 400 }
+      )
     }
 
     // Get user's organization_id from authenticated session
@@ -50,15 +55,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get items - filter by organization_id if available
-    let itemsQuery = supabaseAdmin
-      .from('items')
-      .select('*')
-      .order('name')
-    
+    let itemsQuery = supabaseAdmin.from('items').select('*').order('name')
+
     if (organizationId) {
       itemsQuery = itemsQuery.eq('organization_id', organizationId)
     }
-    
+
     const { data: items, error: itemsError } = await itemsQuery
 
     if (itemsError || !items) {
@@ -69,18 +71,21 @@ export async function GET(request: NextRequest) {
     // Use local date calculation to avoid timezone issues
     const dateStr = date.split('T')[0] // Ensure YYYY-MM-DD format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return NextResponse.json({ error: 'Invalid date format. Expected YYYY-MM-DD' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid date format. Expected YYYY-MM-DD' },
+        { status: 400 }
+      )
     }
-    
+
     const [year, month, day] = dateStr.split('-').map(Number)
     const dateObj = new Date(year, month - 1, day) // month is 0-indexed, use local time
     if (isNaN(dateObj.getTime())) {
       return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
     }
-    
+
     // Subtract one day
     dateObj.setDate(dateObj.getDate() - 1)
-    
+
     // Format back to YYYY-MM-DD without timezone conversion
     const prevYear = dateObj.getFullYear()
     const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
@@ -121,10 +126,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get sales for this date
-    let salesQuery = supabaseAdmin
-      .from('sales')
-      .select('item_id, quantity')
-      .eq('date', date)
+    let salesQuery = supabaseAdmin.from('sales').select('item_id, quantity').eq('date', date)
     salesQuery = addOrgFilter(salesQuery)
     const { data: dateSales } = await salesQuery
 
@@ -145,41 +147,50 @@ export async function GET(request: NextRequest) {
     const { data: dateWasteSpoilage } = await wasteSpoilageQuery
 
     // Filter items by organization_id if specified
-    const filteredItems = organizationId 
+    const filteredItems = organizationId
       ? items.filter(item => item.organization_id === organizationId)
       : items
 
     // Calculate opening and closing stock for each item
-    const report = filteredItems.map((item) => {
+    const report = filteredItems.map(item => {
       // Opening stock: ALWAYS use previous day's closing stock if available for consistency
       // Only fall back to manually entered opening stock if no previous closing stock exists
       // If neither exists, use zero (not item.quantity) - quantities are only from opening/closing stock
-      const existingOpening = existingOpeningStock?.find((os) => os.item_id === item.id)
-      const prevClosing = prevClosingStock?.find((cs) => cs.item_id === item.id)
+      const existingOpening = existingOpeningStock?.find(os => os.item_id === item.id)
+      const prevClosing = prevClosingStock?.find(cs => cs.item_id === item.id)
       const openingStock = prevClosing
         ? parseFloat(prevClosing.quantity.toString()) // Always use previous day's closing stock if available
         : existingOpening
-        ? parseFloat(existingOpening.quantity.toString())
-        : 0 // Use zero if no opening/closing stock exists - quantities only come from stock system
+          ? parseFloat(existingOpening.quantity.toString())
+          : 0 // Use zero if no opening/closing stock exists - quantities only come from stock system
 
       // Calculate total sales for this date
-      const itemSales = dateSales?.filter((s) => s.item_id === item.id) || []
+      const itemSales = dateSales?.filter(s => s.item_id === item.id) || []
       const totalSales = itemSales.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0)
 
       // Calculate total restocking for this date
-      const itemRestocking = dateRestocking?.filter((r) => r.item_id === item.id) || []
-      const totalRestocking = itemRestocking.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0)
+      const itemRestocking = dateRestocking?.filter(r => r.item_id === item.id) || []
+      const totalRestocking = itemRestocking.reduce(
+        (sum, r) => sum + parseFloat(r.quantity.toString()),
+        0
+      )
 
       // Calculate total waste/spoilage for this date
-      const itemWasteSpoilage = dateWasteSpoilage?.filter((w) => w.item_id === item.id) || []
-      const totalWasteSpoilage = itemWasteSpoilage.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0)
+      const itemWasteSpoilage = dateWasteSpoilage?.filter(w => w.item_id === item.id) || []
+      const totalWasteSpoilage = itemWasteSpoilage.reduce(
+        (sum, w) => sum + parseFloat(w.quantity.toString()),
+        0
+      )
 
       // Closing stock: ALWAYS calculate from formula (Opening + Restocking - Sales - Waste/Spoilage)
       // This ensures accuracy even if there's an existing record with incorrect data
       // The existingClosing flag is kept for UI purposes (to show if it was manually entered)
-      const existingClosing = existingClosingStock?.find((cs) => cs.item_id === item.id)
+      const existingClosing = existingClosingStock?.find(cs => cs.item_id === item.id)
       // Always calculate closing stock from the formula for accuracy
-      const closingStock = Math.max(0, openingStock + totalRestocking - totalSales - totalWasteSpoilage)
+      const closingStock = Math.max(
+        0,
+        openingStock + totalRestocking - totalSales - totalWasteSpoilage
+      )
 
       return {
         item_id: item.id,
@@ -190,8 +201,8 @@ export async function GET(request: NextRequest) {
         opening_stock_source: existingOpening
           ? 'manual_entry'
           : prevClosing
-          ? 'previous_closing_stock'
-          : 'zero', // No previous closing stock - using zero (quantities only come from opening/closing stock)
+            ? 'previous_closing_stock'
+            : 'zero', // No previous closing stock - using zero (quantities only come from opening/closing stock)
         opening_stock_cost_price: existingOpening?.cost_price ?? null,
         opening_stock_selling_price: existingOpening?.selling_price ?? null,
         restocking: totalRestocking,
@@ -209,4 +220,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
-
