@@ -108,15 +108,9 @@ function LoginForm() {
   const brandColor = getDefaultBrandColor()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-            style={{ backgroundColor: brandColor }}
-          >
-            {appName.substring(0, 2).toUpperCase()}
-          </div>
+        <div className=" mb-2">
           <h1 className="text-3xl font-bold text-center" style={{ color: brandColor }}>
             {appName}
           </h1>
@@ -228,15 +222,9 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 px-4">
           <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-                style={{ backgroundColor: getDefaultBrandColor() }}
-              >
-                {getAppName().substring(0, 2).toUpperCase()}
-              </div>
+            <div className="mb-2">
               <h1
                 className="text-3xl font-bold text-center"
                 style={{ color: getDefaultBrandColor() }}

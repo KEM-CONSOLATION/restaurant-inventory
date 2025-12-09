@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { Organization } from '@/types/database'
 
 interface OrganizationLogoProps {
@@ -33,29 +34,45 @@ export default function OrganizationLogo({
   className = '',
 }: OrganizationLogoProps) {
   const logoUrl = getOrganizationLogo(organization)
-  const brandColor = getOrganizationBrandColor(organization)
+  // const brandColor = getOrganizationBrandColor(organization)
   const displayName = organization?.name || APP_NAME
 
-  const sizeClasses = {
-    sm: 'text-lg font-bold',
-    md: 'text-xl font-bold',
-    lg: 'text-2xl font-bold',
+  // const sizeClasses = {
+  //   sm: 'text-lg font-bold',
+  //   md: 'text-xl font-bold',
+  //   lg: 'text-2xl font-bold',
+  // }
+
+  const imageSizes = {
+    sm: { width: 32, height: 32 },
+    md: { width: 48, height: 48 },
+    lg: { width: 64, height: 64 },
   }
 
   if (logoUrl) {
+    const { width, height } = imageSizes[size]
     return (
-      <img
+      <Image
         src={logoUrl}
         alt={displayName}
-        className={`${sizeClasses[size]} object-contain ${className}`}
+        width={width}
+        height={height}
+        className={`object-contain ${className}`}
       />
     )
   }
 
-  // Text-based logo (no circle, just the app name)
-  return (
-    <div className={`${sizeClasses[size]} ${className}`} style={{ color: brandColor }}>
-      {displayName}
-    </div>
-  )
+  // Text-based logo (first two letters of the name)
+  // const initials = displayName
+  //   .split(' ')
+  //   .map(word => word[0])
+  //   .join('')
+  //   .toUpperCase()
+  //   .slice(0, 2) || displayName.slice(0, 2).toUpperCase()
+
+  // return (
+  //   <div className={`${sizeClasses[size]} ${className}`} style={{ color: brandColor }}>
+  //     {initials}
+  //   </div>
+  // )
 }

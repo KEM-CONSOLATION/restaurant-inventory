@@ -106,16 +106,20 @@ function getStepsForRole(user: Profile): Step[] {
 }
 
 export default function UserTour({ user, run, onClose }: UserTourProps) {
-  // Use lazy initializer to avoid setState in effect
-  const [isClient] = useState(() => {
-    return typeof window !== 'undefined'
-  })
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.innerWidth < 768
-  })
+  // Use mounted state to prevent hydration mismatches
+  const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [enhancedSteps, setEnhancedSteps] = useState<Step[]>([])
   const baseStepsList = useMemo(() => getStepsForRole(user), [user])
+
+  // Ensure component only renders on client
+  useEffect(() => {
+    // Defer state updates to avoid synchronous setState in effect
+    setTimeout(() => {
+      setMounted(true)
+      setIsMobile(window.innerWidth < 768)
+    }, 0)
+  }, [])
 
   // Helper to extract text from element
   const getElementText = (element: Element): string => {
@@ -155,7 +159,7 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
 
   // Enhance steps with element text after mount
   useEffect(() => {
-    if (!isClient) return
+    if (!mounted) return
 
     // Use setTimeout to defer state update and avoid synchronous setState in effect
     const timeoutId = setTimeout(() => {
@@ -181,7 +185,7 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
     }, 0)
 
     return () => clearTimeout(timeoutId)
-  }, [isClient, baseStepsList])
+  }, [mounted, baseStepsList])
 
   const steps = enhancedSteps.length > 0 ? enhancedSteps : baseStepsList
 
@@ -273,7 +277,7 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
     )
   }
 
-  if (!isClient) {
+  if (!mounted) {
     return null
   }
 
