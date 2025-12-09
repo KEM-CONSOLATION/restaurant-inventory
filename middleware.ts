@@ -1,7 +1,71 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Rate limiting: Simple in-memory store (for production, use Redis or similar)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+// Clean up old entries every 5 minutes
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, value] of rateLimitMap.entries()) {
+    if (value.resetTime < now) {
+      rateLimitMap.delete(key)
+    }
+  }
+}, 5 * 60 * 1000)
+
+function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 60000): boolean {
+  const now = Date.now()
+  const key = ip
+  const record = rateLimitMap.get(key)
+
+  if (!record || record.resetTime < now) {
+    rateLimitMap.set(key, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+
+  if (record.count >= limit) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
 export async function middleware(request: NextRequest) {
+  // Rate limiting for API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+               request.headers.get('x-real-ip') || 
+               'unknown'
+    const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)
+    
+    // Stricter limits for write operations
+    const limit = isWriteOperation ? 30 : 100 // 30 writes/min, 100 reads/min
+    const allowed = checkRateLimit(ip, limit, 60000) // 1 minute window
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      )
+    }
+  }
+
+  // Request size limit check (for API routes)
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const contentLength = request.headers.get('content-length')
+    if (contentLength) {
+      const size = parseInt(contentLength, 10)
+      const maxSize = 1024 * 1024 // 1MB limit
+      if (size > maxSize) {
+        return NextResponse.json(
+          { error: 'Request body too large. Maximum size is 1MB.' },
+          { status: 413 }
+        )
+      }
+    }
+  }
   let supabaseResponse = NextResponse.next({
     request,
   })

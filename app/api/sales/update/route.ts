@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
+import { sanitizeDescription } from '@/lib/utils/sanitize'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -146,32 +147,125 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (parseFloat(quantity) > availableStock) {
+    // Validate numeric inputs
+    const quantityValue = parseFloat(quantity)
+    if (isNaN(quantityValue) || quantityValue <= 0) {
+      return NextResponse.json({ error: 'Invalid quantity. Must be a positive number.' }, { status: 400 })
+    }
+
+    const pricePerUnitValue = price_per_unit ? parseFloat(price_per_unit) : 0
+    if (price_per_unit && (isNaN(pricePerUnitValue) || pricePerUnitValue < 0)) {
+      return NextResponse.json({ error: 'Invalid price per unit. Must be a non-negative number.' }, { status: 400 })
+    }
+
+    const totalPriceValue = total_price ? parseFloat(total_price) : 0
+    if (total_price && (isNaN(totalPriceValue) || totalPriceValue < 0)) {
+      return NextResponse.json({ error: 'Invalid total price. Must be a non-negative number.' }, { status: 400 })
+    }
+
+    // RACE CONDITION PROTECTION: Re-check stock availability immediately before update
+    const maxRetries = 3
+    let retryCount = 0
+    let updateSuccess = false
+
+    while (retryCount < maxRetries && !updateSuccess) {
+      // Re-check stock with fresh data (excluding the sale being updated)
+      let freshOpeningStockQuery = supabaseAdmin
+        .from('opening_stock')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+      freshOpeningStockQuery = addBranchFilter(addOrgFilter(freshOpeningStockQuery))
+      const { data: freshOpeningStock } = await freshOpeningStockQuery.single()
+
+      let freshRestockingQuery = supabaseAdmin
+        .from('restocking')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+      freshRestockingQuery = addBranchFilter(addOrgFilter(freshRestockingQuery))
+      const { data: freshRestocking } = await freshRestockingQuery
+
+      let freshSalesQuery = supabaseAdmin
+        .from('sales')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', date)
+        .neq('id', sale_id) // Exclude the sale being updated
+      freshSalesQuery = addBranchFilter(addOrgFilter(freshSalesQuery))
+      const { data: freshSales } = await freshSalesQuery
+
+      const freshOpeningQty = freshOpeningStock ? parseFloat(freshOpeningStock.quantity.toString()) : 0
+      const freshTotalRestocking =
+        freshRestocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const freshTotalSalesExcludingThis =
+        freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+
+      const freshAvailableStock = freshOpeningQty + freshTotalRestocking - freshTotalSalesExcludingThis
+
+      // Final stock check before update
+      if (freshAvailableStock < quantityValue) {
+        return NextResponse.json(
+          {
+            error: `Stock changed. Available stock is now ${freshAvailableStock.toFixed(2)}. Please refresh and try again.`,
+            available_stock: freshAvailableStock,
+          },
+          { status: 409 } // 409 Conflict
+        )
+      }
+
+      // Attempt to update sale record
+      const { error: saleError } = await supabaseAdmin
+        .from('sales')
+        .update({
+          item_id,
+          quantity: quantityValue,
+          price_per_unit: pricePerUnitValue,
+          total_price: totalPriceValue,
+          payment_mode: payment_mode || 'cash',
+          date,
+          description: description ? sanitizeDescription(description) : null,
+          organization_id: organizationId,
+          branch_id: effectiveBranchId,
+        })
+        .eq('id', sale_id)
+        .select()
+        .single()
+
+      if (saleError) {
+        // If it's a constraint violation or conflict, retry
+        if (
+          (saleError.code === '23505' ||
+            saleError.message.includes('duplicate') ||
+            saleError.message.includes('conflict') ||
+            saleError.message.includes('constraint')) &&
+          retryCount < maxRetries - 1
+        ) {
+          retryCount++
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)))
+          continue
+        }
+        return NextResponse.json({ error: saleError.message }, { status: 500 })
+      }
+
+      updateSuccess = true
+      break // Success, exit retry loop
+    }
+
+    if (!updateSuccess) {
       return NextResponse.json(
-        { error: `Cannot update. Available stock: ${availableStock} (${stockInfo})` },
-        { status: 400 }
+        { error: 'Failed to update sale after retries. Please try again.' },
+        { status: 500 }
       )
     }
 
-    // Update sale record (DO NOT update item quantity - sales are tracked separately)
-    const { error: saleError } = await supabaseAdmin
+    // Get the updated sale
+    const { data: updatedSale } = await supabaseAdmin
       .from('sales')
-      .update({
-        item_id,
-        quantity: parseFloat(quantity),
-        price_per_unit: parseFloat(price_per_unit) || 0,
-        total_price: parseFloat(total_price) || 0,
-        payment_mode: payment_mode || 'cash',
-        date,
-        description: description || null,
-        organization_id: organizationId,
-        branch_id: effectiveBranchId,
-      })
+      .select('*')
       .eq('id', sale_id)
-
-    if (saleError) {
-      return NextResponse.json({ error: saleError.message }, { status: 500 })
-    }
+      .single()
 
     // For past dates: Recalculate closing stock and cascade update opening stock for subsequent days
     if (isPastDate) {

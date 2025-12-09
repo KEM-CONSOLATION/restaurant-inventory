@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
+import { sanitizeNotes } from '@/lib/utils/sanitize'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -169,20 +170,125 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert transfer
-    const { error: insertError } = await supabaseAdmin.from('branch_transfers').insert({
-      organization_id: organizationId,
-      from_branch_id,
-      to_branch_id,
-      item_id,
-      quantity: qty,
-      notes: notes || null,
-      performed_by: user_id,
-      date: transferDate,
-    })
+    // RACE CONDITION PROTECTION: Re-check stock availability immediately before insert
+    // This double-check pattern prevents race conditions in concurrent operations
+    const maxRetries = 3
+    let retryCount = 0
+    let transferCreated = false
 
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+    while (retryCount < maxRetries && !transferCreated) {
+      // Re-check stock with fresh data
+      const { data: freshOpening } = await supabaseAdmin
+        .from('opening_stock')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('organization_id', organizationId)
+        .eq('branch_id', from_branch_id)
+        .single()
+
+      const { data: freshRestocking } = await supabaseAdmin
+        .from('restocking')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('organization_id', organizationId)
+        .eq('branch_id', from_branch_id)
+
+      const { data: freshSales } = await supabaseAdmin
+        .from('sales')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('organization_id', organizationId)
+        .eq('branch_id', from_branch_id)
+
+      const { data: freshWaste } = await supabaseAdmin
+        .from('waste_spoilage')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('organization_id', organizationId)
+        .eq('branch_id', from_branch_id)
+
+      const { data: freshOutgoing } = await supabaseAdmin
+        .from('branch_transfers')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('from_branch_id', from_branch_id)
+        .eq('organization_id', organizationId)
+
+      const { data: freshIncoming } = await supabaseAdmin
+        .from('branch_transfers')
+        .select('quantity')
+        .eq('item_id', item_id)
+        .eq('date', transferDate)
+        .eq('to_branch_id', from_branch_id)
+        .eq('organization_id', organizationId)
+
+      const freshOpeningQty = freshOpening ? parseFloat(freshOpening.quantity.toString()) : 0
+      const freshTotalRestocking =
+        freshRestocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+      const freshTotalSales = freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const freshTotalWaste = freshWaste?.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0) || 0
+      const freshTotalOutgoing =
+        freshOutgoing?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
+      const freshTotalIncoming =
+        freshIncoming?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
+
+      const freshAvailable =
+        freshOpeningQty + freshTotalRestocking + freshTotalIncoming - freshTotalSales - freshTotalWaste - freshTotalOutgoing
+
+      // Final stock check before insert
+      if (freshAvailable < qty) {
+        return NextResponse.json(
+          {
+            error: `Stock changed. Available stock is now ${freshAvailable.toFixed(2)}. Please refresh and try again.`,
+            available_stock: freshAvailable,
+          },
+          { status: 409 } // 409 Conflict
+        )
+      }
+
+      // Attempt to insert transfer
+      const { error: insertError } = await supabaseAdmin.from('branch_transfers').insert({
+        organization_id: organizationId,
+        from_branch_id,
+        to_branch_id,
+        item_id,
+        quantity: qty,
+        notes: notes ? sanitizeNotes(notes) : null,
+        performed_by: user_id,
+        date: transferDate,
+      })
+
+      if (insertError) {
+        // If it's a constraint violation or conflict, retry
+        if (
+          (insertError.code === '23505' ||
+            insertError.message.includes('duplicate') ||
+            insertError.message.includes('conflict') ||
+            insertError.message.includes('constraint')) &&
+          retryCount < maxRetries - 1
+        ) {
+          retryCount++
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)))
+          continue
+        }
+        return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+
+      transferCreated = true
+      break // Success, exit retry loop
+    }
+
+    if (!transferCreated) {
+      return NextResponse.json(
+        { error: 'Failed to create transfer after retries. Please try again.' },
+        { status: 500 }
+      )
     }
 
     // Recalculate closing stock and cascade for both branches

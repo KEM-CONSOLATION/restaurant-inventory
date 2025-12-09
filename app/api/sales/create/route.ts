@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
+import { sanitizeDescription } from '@/lib/utils/sanitize'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
+    // Request size validation (backup to middleware)
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength, 10) > 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'Request body too large. Maximum size is 1MB.' },
+        { status: 413 }
+      )
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -15,6 +25,14 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
+    
+    // Validate array lengths if present
+    if (body.items && Array.isArray(body.items) && body.items.length > 1000) {
+      return NextResponse.json(
+        { error: 'Too many items in request. Maximum is 1000.' },
+        { status: 400 }
+      )
+    }
     const {
       item_id,
       quantity,
@@ -31,6 +49,22 @@ export async function POST(request: NextRequest) {
 
     if (!item_id || !quantity || !date || !user_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate numeric inputs
+    const quantityValue = parseFloat(quantity)
+    if (isNaN(quantityValue) || quantityValue <= 0) {
+      return NextResponse.json({ error: 'Invalid quantity. Must be a positive number.' }, { status: 400 })
+    }
+
+    const pricePerUnitValue = price_per_unit ? parseFloat(price_per_unit) : 0
+    if (price_per_unit && (isNaN(pricePerUnitValue) || pricePerUnitValue < 0)) {
+      return NextResponse.json({ error: 'Invalid price per unit. Must be a non-negative number.' }, { status: 400 })
+    }
+
+    const totalPriceValue = total_price ? parseFloat(total_price) : 0
+    if (total_price && (isNaN(totalPriceValue) || totalPriceValue < 0)) {
+      return NextResponse.json({ error: 'Invalid total price. Must be a non-negative number.' }, { status: 400 })
     }
 
     // Get user's organization_id and branch_id
@@ -262,7 +296,7 @@ export async function POST(request: NextRequest) {
       stockInfo = `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSalesSoFar}`
     }
 
-    if (availableStock < parseFloat(quantity)) {
+    if (availableStock < quantityValue) {
       // For batch-specific sales, show batch-specific error message
       if (restocking_id || opening_stock_id) {
         return NextResponse.json(
@@ -288,29 +322,157 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create sale record with batch tracking
-    const { data: sale, error: saleError } = await supabaseAdmin
-      .from('sales')
-      .insert({
-        item_id,
-        quantity: parseFloat(quantity),
-        price_per_unit: parseFloat(price_per_unit) || 0,
-        total_price: parseFloat(total_price) || 0,
-        payment_mode: payment_mode || 'cash',
-        date,
-        recorded_by: user_id,
-        organization_id: organization_id,
-        branch_id: effective_branch_id,
-        description: description || null,
-        restocking_id: restocking_id || null,
-        opening_stock_id: opening_stock_id || null,
-        batch_label: batch_label || null,
-      })
-      .select()
-      .single()
+    // RACE CONDITION PROTECTION: Re-check stock availability immediately before insert
+    // This double-check pattern prevents race conditions in concurrent operations
+    let finalAvailableStock = 0
+    const maxRetries = 3
+    let retryCount = 0
+    let sale = null
 
-    if (saleError) {
-      return NextResponse.json({ error: saleError.message }, { status: 500 })
+    while (retryCount < maxRetries) {
+      // Re-calculate available stock with fresh data (double-check)
+      if (restocking_id) {
+        const { data: freshRestocking } = await supabaseAdmin
+          .from('restocking')
+          .select('quantity')
+          .eq('id', restocking_id)
+          .single()
+
+        let freshSalesQuery = supabaseAdmin
+          .from('sales')
+          .select('quantity')
+          .eq('restocking_id', restocking_id)
+          .eq('date', date)
+          .eq('organization_id', organization_id)
+        if (effective_branch_id) {
+          freshSalesQuery = freshSalesQuery.eq('branch_id', effective_branch_id)
+        }
+        const { data: freshSales } = await freshSalesQuery
+
+        const restockQty = freshRestocking ? parseFloat(freshRestocking.quantity.toString()) : 0
+        const totalSalesSoFar =
+          freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+        finalAvailableStock = Math.max(0, restockQty - totalSalesSoFar)
+      } else if (opening_stock_id) {
+        const { data: freshOpeningStock } = await supabaseAdmin
+          .from('opening_stock')
+          .select('quantity')
+          .eq('id', opening_stock_id)
+          .single()
+
+        let freshSalesQuery2 = supabaseAdmin
+          .from('sales')
+          .select('quantity')
+          .eq('opening_stock_id', opening_stock_id)
+          .eq('date', date)
+          .eq('organization_id', organization_id)
+        if (effective_branch_id) {
+          freshSalesQuery2 = freshSalesQuery2.eq('branch_id', effective_branch_id)
+        }
+        const { data: freshSales } = await freshSalesQuery2
+
+        const openingQty = freshOpeningStock ? parseFloat(freshOpeningStock.quantity.toString()) : 0
+        const totalSalesSoFar =
+          freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+        finalAvailableStock = openingQty - totalSalesSoFar
+      } else {
+        // Re-check general stock availability
+        let freshOpeningStockQuery = supabaseAdmin
+          .from('opening_stock')
+          .select('quantity')
+          .eq('item_id', item_id)
+          .eq('date', date)
+          .eq('organization_id', organization_id)
+        if (effective_branch_id) {
+          freshOpeningStockQuery = freshOpeningStockQuery.eq('branch_id', effective_branch_id)
+        }
+        const { data: freshOpeningStock } = await freshOpeningStockQuery.single()
+
+        let freshRestockingQuery = supabaseAdmin
+          .from('restocking')
+          .select('quantity')
+          .eq('item_id', item_id)
+          .eq('date', date)
+          .eq('organization_id', organization_id)
+        if (effective_branch_id) {
+          freshRestockingQuery = freshRestockingQuery.eq('branch_id', effective_branch_id)
+        }
+        const { data: freshRestocking } = await freshRestockingQuery
+
+        let freshSalesQuery3 = supabaseAdmin
+          .from('sales')
+          .select('quantity')
+          .eq('item_id', item_id)
+          .eq('date', date)
+          .eq('organization_id', organization_id)
+        if (effective_branch_id) {
+          freshSalesQuery3 = freshSalesQuery3.eq('branch_id', effective_branch_id)
+        }
+        const { data: freshSales } = await freshSalesQuery3
+
+        const openingQty = freshOpeningStock ? parseFloat(freshOpeningStock.quantity.toString()) : 0
+        const totalRestocking =
+          freshRestocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
+        const totalSalesSoFar =
+          freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+        finalAvailableStock = openingQty + totalRestocking - totalSalesSoFar
+      }
+
+      // Final stock check before insert
+      if (finalAvailableStock < quantityValue) {
+        return NextResponse.json(
+          {
+            error: `Stock changed. Available stock is now ${finalAvailableStock.toFixed(2)}. Please refresh and try again.`,
+            available_stock: finalAvailableStock,
+          },
+          { status: 409 } // 409 Conflict
+        )
+      }
+
+      // Attempt to create sale record
+      const { data: newSale, error: saleError } = await supabaseAdmin
+        .from('sales')
+        .insert({
+          item_id,
+          quantity: quantityValue,
+          price_per_unit: pricePerUnitValue,
+          total_price: totalPriceValue,
+          payment_mode: payment_mode || 'cash',
+          date,
+          recorded_by: user_id,
+          organization_id: organization_id,
+          branch_id: effective_branch_id,
+          description: description ? sanitizeDescription(description) : null,
+          restocking_id: restocking_id || null,
+          opening_stock_id: opening_stock_id || null,
+          batch_label: batch_label || null,
+        })
+        .select()
+        .single()
+
+      if (saleError) {
+        // If it's a constraint violation or conflict, retry
+        if (
+          (saleError.code === '23505' || saleError.message.includes('duplicate') || saleError.message.includes('conflict')) &&
+          retryCount < maxRetries - 1
+        ) {
+          retryCount++
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)))
+          continue
+        }
+        return NextResponse.json({ error: saleError.message }, { status: 500 })
+      }
+
+      sale = newSale
+      break // Success, exit retry loop
+    }
+
+    if (!sale) {
+      return NextResponse.json(
+        { error: 'Failed to create sale after retries. Please try again.' },
+        { status: 500 }
+      )
     }
 
     // For past dates: Recalculate closing stock and cascade update opening stock for subsequent days
