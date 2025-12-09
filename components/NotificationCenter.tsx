@@ -192,30 +192,31 @@ export default function NotificationCenter() {
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute left-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-128 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+          <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[32rem] overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
+                  className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-900 font-medium transition-colors"
+                  type="button"
                 >
                   Mark all as read
                 </button>
               )}
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
               {loading ? (
                 <div className="p-4 text-center text-gray-500">
                   <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mb-2"></div>
-                  <p>Loading notifications...</p>
+                  <p className="text-sm">Loading notifications...</p>
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
+                <div className="p-6 text-center text-gray-500">
                   <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  <p className="text-sm">No notifications</p>
+                  <p className="text-sm font-medium">No notifications</p>
                   <p className="text-xs text-gray-400 mt-1">You&apos;re all caught up!</p>
                 </div>
               ) : (
@@ -223,7 +224,7 @@ export default function NotificationCenter() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                      className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
                         !notification.is_read ? 'bg-blue-50' : ''
                       }`}
                       onClick={() => {
@@ -241,7 +242,7 @@ export default function NotificationCenter() {
                         }
                       }}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-2 sm:gap-3">
                         <div className="shrink-0 mt-0.5">
                           {getNotificationIcon(notification.type)}
                         </div>
@@ -251,15 +252,15 @@ export default function NotificationCenter() {
                           }`}>
                             {notification.title}
                           </p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-gray-400 mt-1.5">
                             {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
                           </p>
                         </div>
                         {!notification.is_read && (
-                          <div className="shrink-0">
+                          <div className="shrink-0 mt-1">
                             <div className="h-2 w-2 bg-blue-500 rounded-full" />
                           </div>
                         )}
