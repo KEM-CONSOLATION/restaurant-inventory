@@ -172,7 +172,7 @@ export default function NotificationCenter() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer"
         title="Notifications"
         type="button"
       >
@@ -198,7 +198,7 @@ export default function NotificationCenter() {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-900 font-medium transition-colors"
+                  className="text-xs sm:text-sm text-indigo-600 hover:text-indigo-900 font-medium transition-colors cursor-pointer"
                   type="button"
                 >
                   Mark all as read
@@ -227,6 +227,8 @@ export default function NotificationCenter() {
                       className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
                         !notification.is_read ? 'bg-blue-50' : ''
                       }`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         if (!notification.is_read) {
                           markAsRead(notification.id)

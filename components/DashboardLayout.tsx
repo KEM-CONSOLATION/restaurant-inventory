@@ -302,7 +302,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="flex-1 lg:hidden" />
+            <div className="flex-1" />
             <div className="flex items-center gap-3">
               {user.role !== 'superadmin' && (
                 <div className="relative">
