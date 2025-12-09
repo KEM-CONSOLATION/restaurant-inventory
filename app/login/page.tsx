@@ -120,9 +120,7 @@ function LoginForm() {
             className="object-contain"
             priority
           />
-        <p className="text-center text-gray-600 mb-8">Sign in to your account</p>
-
-          
+          <p className="text-center text-gray-600 mb-8">Sign in to your account</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">

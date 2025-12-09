@@ -5,14 +5,17 @@ import { NextResponse, type NextRequest } from 'next/server'
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 // Clean up old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (value.resetTime < now) {
-      rateLimitMap.delete(key)
+setInterval(
+  () => {
+    const now = Date.now()
+    for (const [key, value] of rateLimitMap.entries()) {
+      if (value.resetTime < now) {
+        rateLimitMap.delete(key)
+      }
     }
-  }
-}, 5 * 60 * 1000)
+  },
+  5 * 60 * 1000
+)
 
 function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 60000): boolean {
   const now = Date.now()
@@ -35,11 +38,12 @@ function checkRateLimit(ip: string, limit: number = 100, windowMs: number = 6000
 export async function middleware(request: NextRequest) {
   // Rate limiting for API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-               request.headers.get('x-real-ip') || 
-               'unknown'
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown'
     const isWriteOperation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)
-    
+
     // Stricter limits for write operations
     const limit = isWriteOperation ? 30 : 100 // 30 writes/min, 100 reads/min
     const allowed = checkRateLimit(ip, limit, 60000) // 1 minute window

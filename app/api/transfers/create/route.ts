@@ -230,15 +230,22 @@ export async function POST(request: NextRequest) {
       const freshOpeningQty = freshOpening ? parseFloat(freshOpening.quantity.toString()) : 0
       const freshTotalRestocking =
         freshRestocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
-      const freshTotalSales = freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
-      const freshTotalWaste = freshWaste?.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0) || 0
+      const freshTotalSales =
+        freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
+      const freshTotalWaste =
+        freshWaste?.reduce((sum, w) => sum + parseFloat(w.quantity.toString()), 0) || 0
       const freshTotalOutgoing =
         freshOutgoing?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
       const freshTotalIncoming =
         freshIncoming?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
 
       const freshAvailable =
-        freshOpeningQty + freshTotalRestocking + freshTotalIncoming - freshTotalSales - freshTotalWaste - freshTotalOutgoing
+        freshOpeningQty +
+        freshTotalRestocking +
+        freshTotalIncoming -
+        freshTotalSales -
+        freshTotalWaste -
+        freshTotalOutgoing
 
       // Final stock check before insert
       if (freshAvailable < qty) {

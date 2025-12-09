@@ -21,7 +21,9 @@ export default function RestockingForm() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editingRestocking, setEditingRestocking] = useState<Restocking | null>(null)
-  const [userRole, setUserRole] = useState<'admin' | 'staff' | 'superadmin' | 'branch_manager' | null>(null)
+  const [userRole, setUserRole] = useState<
+    'admin' | 'staff' | 'superadmin' | 'branch_manager' | null
+  >(null)
   const [openingStock, setOpeningStock] = useState<number | null>(null)
   const [currentTotal, setCurrentTotal] = useState<number | null>(null)
   const [filterDate, setFilterDate] = useState<string>('') // Date filter for records table
@@ -547,7 +549,8 @@ export default function RestockingForm() {
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded">
           <p className="font-medium">Access Restricted</p>
           <p className="text-sm mt-1">
-            Staff members cannot record restocking. Only managers and admins can perform restocking operations.
+            Staff members cannot record restocking. Only managers and admins can perform restocking
+            operations.
           </p>
         </div>
       </div>
@@ -577,10 +580,7 @@ export default function RestockingForm() {
 
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-            Date{' '}
-            {!isAdmin && (
-              <span className="text-xs text-gray-500">(Today only)</span>
-            )}
+            Date {!isAdmin && <span className="text-xs text-gray-500">(Today only)</span>}
             {isAdmin && (
               <span className="text-xs text-gray-500">(Admin: Can select past dates)</span>
             )}

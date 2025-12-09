@@ -150,17 +150,26 @@ export async function PUT(request: NextRequest) {
     // Validate numeric inputs
     const quantityValue = parseFloat(quantity)
     if (isNaN(quantityValue) || quantityValue <= 0) {
-      return NextResponse.json({ error: 'Invalid quantity. Must be a positive number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid quantity. Must be a positive number.' },
+        { status: 400 }
+      )
     }
 
     const pricePerUnitValue = price_per_unit ? parseFloat(price_per_unit) : 0
     if (price_per_unit && (isNaN(pricePerUnitValue) || pricePerUnitValue < 0)) {
-      return NextResponse.json({ error: 'Invalid price per unit. Must be a non-negative number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid price per unit. Must be a non-negative number.' },
+        { status: 400 }
+      )
     }
 
     const totalPriceValue = total_price ? parseFloat(total_price) : 0
     if (total_price && (isNaN(totalPriceValue) || totalPriceValue < 0)) {
-      return NextResponse.json({ error: 'Invalid total price. Must be a non-negative number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid total price. Must be a non-negative number.' },
+        { status: 400 }
+      )
     }
 
     // RACE CONDITION PROTECTION: Re-check stock availability immediately before update
@@ -195,13 +204,16 @@ export async function PUT(request: NextRequest) {
       freshSalesQuery = addBranchFilter(addOrgFilter(freshSalesQuery))
       const { data: freshSales } = await freshSalesQuery
 
-      const freshOpeningQty = freshOpeningStock ? parseFloat(freshOpeningStock.quantity.toString()) : 0
+      const freshOpeningQty = freshOpeningStock
+        ? parseFloat(freshOpeningStock.quantity.toString())
+        : 0
       const freshTotalRestocking =
         freshRestocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
       const freshTotalSalesExcludingThis =
         freshSales?.reduce((sum, s) => sum + parseFloat(s.quantity.toString()), 0) || 0
 
-      const freshAvailableStock = freshOpeningQty + freshTotalRestocking - freshTotalSalesExcludingThis
+      const freshAvailableStock =
+        freshOpeningQty + freshTotalRestocking - freshTotalSalesExcludingThis
 
       // Final stock check before update
       if (freshAvailableStock < quantityValue) {

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    
+
     // Validate array lengths if present
     if (body.items && Array.isArray(body.items) && body.items.length > 1000) {
       return NextResponse.json(
@@ -54,17 +54,26 @@ export async function POST(request: NextRequest) {
     // Validate numeric inputs
     const quantityValue = parseFloat(quantity)
     if (isNaN(quantityValue) || quantityValue <= 0) {
-      return NextResponse.json({ error: 'Invalid quantity. Must be a positive number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid quantity. Must be a positive number.' },
+        { status: 400 }
+      )
     }
 
     const pricePerUnitValue = price_per_unit ? parseFloat(price_per_unit) : 0
     if (price_per_unit && (isNaN(pricePerUnitValue) || pricePerUnitValue < 0)) {
-      return NextResponse.json({ error: 'Invalid price per unit. Must be a non-negative number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid price per unit. Must be a non-negative number.' },
+        { status: 400 }
+      )
     }
 
     const totalPriceValue = total_price ? parseFloat(total_price) : 0
     if (total_price && (isNaN(totalPriceValue) || totalPriceValue < 0)) {
-      return NextResponse.json({ error: 'Invalid total price. Must be a non-negative number.' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid total price. Must be a non-negative number.' },
+        { status: 400 }
+      )
     }
 
     // Get user's organization_id and branch_id
@@ -103,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Only admins can record sales for past dates (for backfilling)
     if ((profile.role === 'staff' || profile.role === 'branch_manager') && date < today) {
       return NextResponse.json(
-        { error: 'Staff and branch managers can only record sales for today\'s date' },
+        { error: "Staff and branch managers can only record sales for today's date" },
         { status: 403 }
       )
     }
@@ -453,7 +462,9 @@ export async function POST(request: NextRequest) {
       if (saleError) {
         // If it's a constraint violation or conflict, retry
         if (
-          (saleError.code === '23505' || saleError.message.includes('duplicate') || saleError.message.includes('conflict')) &&
+          (saleError.code === '23505' ||
+            saleError.message.includes('duplicate') ||
+            saleError.message.includes('conflict')) &&
           retryCount < maxRetries - 1
         ) {
           retryCount++

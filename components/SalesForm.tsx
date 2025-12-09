@@ -254,9 +254,11 @@ export default function SalesForm() {
 
   // Derive userRole from profile
   const userRole = profile?.role || null
-  
+
   // Helper to check if user can record sales (staff, branch_manager, and admin can, but not superadmin)
-  const canRecordSales = !isSuperAdmin && (isAdmin || isStaff || userRole === 'branch_manager' || userRole === 'tenant_admin')
+  const canRecordSales =
+    !isSuperAdmin &&
+    (isAdmin || isStaff || userRole === 'branch_manager' || userRole === 'tenant_admin')
 
   // Helper function to normalize date format
   const normalizeDate = useCallback((dateStr: string): string => {
