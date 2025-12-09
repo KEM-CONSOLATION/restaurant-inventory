@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    let { date, user_id } = body
+    const { date: rawDate, user_id } = body
+    let date = rawDate
 
     if (!date || !user_id) {
       return NextResponse.json({ error: 'Missing date or user_id' }, { status: 400 })
@@ -71,8 +72,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Helper functions to add filters
-    const addOrgFilter = (query: any) => (organizationId ? query.eq('organization_id', organizationId) : query)
-    const addBranchFilter = (query: any) =>
+    type EqQuery<T> = {
+      eq: (column: string, value: unknown) => T
+    }
+    const addOrgFilter = <T extends EqQuery<T>>(query: T): T =>
+      organizationId ? query.eq('organization_id', organizationId) : query
+    const addBranchFilter = <T extends EqQuery<T>>(query: T): T =>
       branchId !== null && branchId !== undefined ? query.eq('branch_id', branchId) : query
 
     // Get previous day's closing stock (or use item quantity as fallback)
@@ -212,19 +217,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
-    // Get user's branch_id for cascade update
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('branch_id, role')
-      .eq('id', user_id)
-      .single()
-
-    const effective_branch_id =
-      profile?.role === 'admin' && !profile.branch_id ? null : profile?.branch_id || null
-
     // Trigger cascade update to sync opening stock for the next day
     try {
-      await cascadeUpdateFromDate(date, user_id, effective_branch_id)
+      await cascadeUpdateFromDate(date, user_id, branchId)
     } catch (error) {
       console.error('Cascade update failed after saving closing stock:', error)
       // Don't fail the request if cascade update fails

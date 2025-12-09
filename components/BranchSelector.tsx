@@ -10,11 +10,20 @@ export default function BranchSelector() {
 
   useEffect(() => {
     if (isTenantAdmin && organizationId) {
-      fetchBranches(organizationId)
+      fetchBranches(organizationId).then(() => {
+        // If user has an assigned branch and nothing is selected yet, default to that branch
+        if (profile?.branch_id && !currentBranch) {
+          const assigned = availableBranches.find(b => b.id === profile.branch_id)
+          if (assigned) {
+            setCurrentBranch(assigned)
+          }
+        }
+      })
     }
-  }, [isTenantAdmin, organizationId, fetchBranches])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTenantAdmin, organizationId, profile?.branch_id])
 
-  // Only show for tenant admin (admin without fixed branch_id)
+  // Only show for admins (tenant-level)
   if (!isTenantAdmin) {
     return null
   }

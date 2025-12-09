@@ -16,9 +16,9 @@ export function useAuth() {
   // Tenant admin (admin): can switch branches (uses currentBranch from store/cookie)
   // Branch manager/staff: fixed branch_id from profile
   const effectiveBranchId =
-    profile?.role === 'admin' && !profile.branch_id
-      ? currentBranch?.id || null // Tenant admin: use selected branch
-      : profile?.branch_id || null // Branch manager/staff: use fixed branch
+    profile?.role === 'admin'
+      ? currentBranch?.id || profile?.branch_id || null // Admin can switch; fallback to assigned branch
+      : profile?.branch_id || null // Branch manager/staff: fixed branch
 
   return {
     user,
@@ -40,7 +40,7 @@ export function useAuth() {
     branchId: effectiveBranchId,
     effectiveBranchId, // Alias for clarity
     hasMultipleBranches: availableBranches.length > 1,
-    isTenantAdmin: profile?.role === 'admin' && !profile.branch_id, // Admin without fixed branch
-    canSwitchBranches: profile?.role === 'admin' && !profile.branch_id, // Can switch branches
+    isTenantAdmin: profile?.role === 'admin', // Admins can switch branches (selector controls current)
+    canSwitchBranches: profile?.role === 'admin', // Admins can switch branches
   }
 }
