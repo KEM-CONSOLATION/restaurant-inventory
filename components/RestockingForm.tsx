@@ -344,6 +344,7 @@ export default function RestockingForm() {
             recorded_by: string
             notes: string
             organization_id?: string | null
+            branch_id?: string | null
             cost_price?: number | null
             selling_price?: number | null
           } = {

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Item } from '@/types/database'
-import { format } from 'date-fns'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useItemsStore } from '@/lib/stores/itemsStore'
 
@@ -237,7 +236,9 @@ export default function ItemManagement() {
       }
     } else {
       setMessage({ type: 'success', text: 'Item deleted successfully!' })
-      fetchItems()
+      if (organizationId) {
+        fetchItemsFromStore(organizationId, branchId)
+      }
     }
     setLoading(false)
   }
@@ -359,7 +360,7 @@ export default function ItemManagement() {
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   <strong>Note:</strong> If you enter a quantity greater than 0, an opening stock
-                  record will be automatically created for today's date. This makes the item
+                  record will be automatically created for today&apos;s date. This makes the item
                   immediately available for sales. You can also leave it as 0 and add opening stock
                   manually later.
                 </p>

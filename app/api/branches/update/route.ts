@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest) {
     // Verify branch exists and user has access
     const { data: branch, error: fetchError } = await supabase
       .from('branches')
-      .select('organization_id')
+      .select('organization_id, name')
       .eq('id', id)
       .single()
 
@@ -72,7 +72,13 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update branch
-    const updateData: any = {}
+    const updateData: {
+      name?: string
+      address?: string
+      phone?: string
+      is_active?: boolean
+      updated_at?: string
+    } = {}
     if (name !== undefined) updateData.name = name
     if (address !== undefined) updateData.address = address
     if (phone !== undefined) updateData.phone = phone

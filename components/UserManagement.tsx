@@ -19,7 +19,7 @@ export default function UserManagement() {
     email: '',
     password: '',
     fullName: '',
-    role: 'staff' as 'admin' | 'staff' | 'superadmin',
+    role: 'staff' as 'admin' | 'staff' | 'superadmin' | 'branch_manager',
     branch_id: '' as string | '',
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -45,7 +45,7 @@ export default function UserManagement() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, organization_id')
+        .select('role, organization_id, branch_id')
         .eq('id', user.id)
         .single()
 
@@ -85,14 +85,17 @@ export default function UserManagement() {
 
       if (fetchError) throw fetchError
       setUsers(data || [])
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch users')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch users')
     } finally {
       setLoading(false)
     }
   }
 
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'staff' | 'superadmin') => {
+  const updateUserRole = async (
+    userId: string,
+    newRole: 'admin' | 'staff' | 'superadmin' | 'branch_manager'
+  ) => {
     setError(null)
     setSuccess(null)
     try {
@@ -122,8 +125,8 @@ export default function UserManagement() {
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(err.message || 'Failed to update user role')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user role')
     }
   }
 
@@ -147,8 +150,8 @@ export default function UserManagement() {
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete user')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete user')
     }
   }
 
@@ -170,17 +173,12 @@ export default function UserManagement() {
         email: newUser.email,
         password: newUser.password,
         fullName: newUser.fullName,
-        role:
-          newUser.role === 'admin' && !newUser.branch_id
-            ? 'tenant_admin'
-            : newUser.role === 'admin' && newUser.branch_id
-              ? 'branch_manager'
-              : newUser.role,
+        role: newUser.role,
       }
 
       // Set branch_id based on role
-      if (newUser.role === 'tenant_admin' || newUser.role === 'admin') {
-        // Tenant admin: no branch_id
+      if (newUser.role === 'admin') {
+        // Tenant/tenant-admin: no branch_id (can switch)
         userData.branch_id = null
       } else if (newUser.role === 'branch_manager' || newUser.role === 'staff') {
         // Branch manager and staff: require branch_id
@@ -214,8 +212,8 @@ export default function UserManagement() {
       await fetchUsers()
 
       setTimeout(() => setSuccess(null), 5000)
-    } catch (err: any) {
-      setError(err.message || 'Failed to create user')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create user')
     } finally {
       setCreating(false)
     }
