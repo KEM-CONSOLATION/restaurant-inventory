@@ -63,7 +63,20 @@ export async function PUT(request: NextRequest) {
     }
 
     if (brand_color !== undefined) {
-      updateData.brand_color = brand_color || null
+      // Validate hex color format if provided
+      if (brand_color && typeof brand_color === 'string') {
+        const hexColorRegex = /^#[0-9A-Fa-f]{6}$/
+        if (!hexColorRegex.test(brand_color)) {
+          return NextResponse.json(
+            { error: 'Invalid brand color format. Must be a valid hex color (e.g., #3B82F6)' },
+            { status: 400 }
+          )
+        }
+        // Normalize to uppercase
+        updateData.brand_color = brand_color.toUpperCase()
+      } else {
+        updateData.brand_color = null
+      }
     }
 
     const { data: organization, error } = await supabaseAdmin

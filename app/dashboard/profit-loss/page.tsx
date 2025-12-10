@@ -29,6 +29,12 @@ export default async function ProfitLossPage() {
     redirect('/admin')
   }
 
+  // Restrict Profit & Loss to management roles only (not staff)
+  const allowedRoles = ['branch_manager', 'admin', 'tenant_admin']
+  if (!allowedRoles.includes(profile.role)) {
+    redirect('/dashboard?error=unauthorized')
+  }
+
   return (
     <DashboardLayout user={profile}>
       <div>

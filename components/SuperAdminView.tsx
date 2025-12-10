@@ -276,6 +276,15 @@ export default function SuperAdminView() {
   }
 
   const handleUpdateBranding = async (orgId: string) => {
+    // Validate brand color format if provided
+    if (brandingData.brand_color && !/^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color)) {
+      setMessage({
+        type: 'error',
+        text: 'Invalid color format. Please use a valid hex color (e.g., #3B82F6)',
+      })
+      return
+    }
+
     setCreating(true)
     setMessage(null)
 
@@ -287,7 +296,10 @@ export default function SuperAdminView() {
           organization_id: orgId,
           name: organizations.find(o => o.id === orgId)?.name,
           logo_url: brandingData.logo_url || null,
-          brand_color: brandingData.brand_color || null,
+          brand_color:
+            brandingData.brand_color && /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color)
+              ? brandingData.brand_color
+              : null,
         }),
       })
 
@@ -377,9 +389,27 @@ export default function SuperAdminView() {
     }
   }
 
+  const validatePassword = (password: string): string | null => {
+    if (!password) {
+      return 'Password is required'
+    }
+    if (password.trim().length === 0) {
+      return 'Password cannot be empty or contain only spaces'
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters long'
+    }
+    if (password.length > 72) {
+      return 'Password must be no more than 72 characters long'
+    }
+    return null
+  }
+
   const handleResetPassword = async (userId: string) => {
-    if (!newPassword || newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters long' })
+    // Validate password before submitting
+    const validationError = validatePassword(newPassword)
+    if (validationError) {
+      setMessage({ type: 'error', text: validationError })
       return
     }
 
@@ -397,7 +427,9 @@ export default function SuperAdminView() {
       })
 
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Failed to reset password')
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset password')
+      }
 
       setMessage({ type: 'success', text: 'Password reset successfully' })
       setNewPassword('')
@@ -643,7 +675,7 @@ export default function SuperAdminView() {
                                 e.stopPropagation()
                                 setEditingOrg(org.id)
                               }}
-                              className="px-3 py-1 text-xs text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
+                              className="px-3 py-1 cursor-pointer text-xs text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
                             >
                               Edit Name
                             </button>
@@ -656,7 +688,7 @@ export default function SuperAdminView() {
                                   brand_color: org.brand_color || '',
                                 })
                               }}
-                              className="px-3 py-1 text-xs text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded transition-colors"
+                              className="px-3 py-1 cursor-pointer text-xs text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded transition-colors"
                             >
                               Branding
                             </button>
@@ -665,7 +697,7 @@ export default function SuperAdminView() {
                                 e.stopPropagation()
                                 handleDeleteOrganization(org.id, org.name)
                               }}
-                              className="px-3 py-1 text-xs text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                              className="px-3 py-1 cursor-pointer text-xs text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
                             >
                               Delete
                             </button>
@@ -696,7 +728,7 @@ export default function SuperAdminView() {
                                 onChange={e =>
                                   setBrandingData({ ...brandingData, logo_url: e.target.value })
                                 }
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-black! placeholder:text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 placeholder="https://example.com/logo.png"
                               />
                               <p className="mt-1 text-xs text-gray-500">
@@ -707,40 +739,118 @@ export default function SuperAdminView() {
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Brand Color (Optional)
                               </label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="color"
-                                  value={brandingData.brand_color || '#3B82F6'}
-                                  onChange={e =>
-                                    setBrandingData({
-                                      ...brandingData,
-                                      brand_color: e.target.value,
-                                    })
-                                  }
-                                  className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
-                                />
-                                <input
-                                  type="text"
-                                  value={brandingData.brand_color}
-                                  onChange={e =>
-                                    setBrandingData({
-                                      ...brandingData,
-                                      brand_color: e.target.value,
-                                    })
-                                  }
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="#3B82F6"
-                                  pattern="^#[0-9A-Fa-f]{6}$"
-                                />
+                              <div className="flex gap-2 items-start">
+                                <div className="relative">
+                                  <input
+                                    type="color"
+                                    value={
+                                      brandingData.brand_color &&
+                                      /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color)
+                                        ? brandingData.brand_color
+                                        : '#3B82F6'
+                                    }
+                                    onChange={e => {
+                                      const color = e.target.value.toUpperCase()
+                                      setBrandingData({
+                                        ...brandingData,
+                                        brand_color: color,
+                                      })
+                                    }}
+                                    className="w-16 h-10 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 transition-colors text-black! placeholder:text-black"
+                                    title="Click to pick a color"
+                                  />
+                                  {/* Color preview circle */}
+                                  <div
+                                    className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                                    style={{
+                                      backgroundColor:
+                                        brandingData.brand_color &&
+                                        /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color)
+                                          ? brandingData.brand_color
+                                          : '#3B82F6',
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={brandingData.brand_color || ''}
+                                      onChange={e => {
+                                        let value = e.target.value.trim()
+                                        // Auto-add # if user types without it
+                                        if (value && !value.startsWith('#')) {
+                                          value = '#' + value
+                                        }
+                                        // Convert to uppercase and limit to hex format
+                                        value = value
+                                          .toUpperCase()
+                                          .replace(/[^#0-9A-F]/g, '')
+                                          .slice(0, 7)
+                                        setBrandingData({
+                                          ...brandingData,
+                                          brand_color: value,
+                                        })
+                                      }}
+                                      onBlur={e => {
+                                        // Validate and format on blur
+                                        const value = e.target.value.trim()
+                                        if (value && !/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                                          // If invalid, clear or set to default
+                                          setBrandingData({
+                                            ...brandingData,
+                                            brand_color: '',
+                                          })
+                                        }
+                                      }}
+                                      className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
+                                        brandingData.brand_color &&
+                                        !/^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color) &&
+                                        brandingData.brand_color.length > 0
+                                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                                          : brandingData.brand_color &&
+                                              /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color)
+                                            ? 'border-green-300 focus:border-green-500'
+                                            : 'border-gray-300'
+                                      }`}
+                                      placeholder="#3B82F6"
+                                      maxLength={7}
+                                    />
+                                    {/* Color preview indicator in input */}
+                                    {brandingData.brand_color &&
+                                      /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color) && (
+                                        <div
+                                          className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded border border-gray-300 shadow-sm"
+                                          style={{ backgroundColor: brandingData.brand_color }}
+                                          title={`Current color: ${brandingData.brand_color}`}
+                                        />
+                                      )}
+                                  </div>
+                                  {brandingData.brand_color &&
+                                    !/^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color) &&
+                                    brandingData.brand_color.length > 0 && (
+                                      <p className="mt-1 text-xs text-red-600">
+                                        Invalid hex color format. Use format: #RRGGBB (e.g.,
+                                        #3B82F6)
+                                      </p>
+                                    )}
+                                  {brandingData.brand_color &&
+                                    /^#[0-9A-Fa-f]{6}$/.test(brandingData.brand_color) && (
+                                      <p className="mt-1 text-xs text-green-600">
+                                        Valid color: {brandingData.brand_color}
+                                      </p>
+                                    )}
+                                </div>
                               </div>
                               <p className="mt-1 text-xs text-gray-500">
-                                Leave empty to use default color
+                                Enter a hex color code (e.g., #3B82F6) or leave empty to use default
+                                color
                               </p>
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleUpdateBranding(org.id)}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                                className="px-4 py-2 cursor-pointer bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
                               >
                                 Save Branding
                               </button>
@@ -998,7 +1108,7 @@ export default function SuperAdminView() {
                     type="text"
                     value={newOrg.adminName}
                     onChange={e => setNewOrg({ ...newOrg, adminName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-gray-900 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="John Doe"
                   />
                 </div>
@@ -1037,12 +1147,12 @@ export default function SuperAdminView() {
               <select
                 value={selectedOrg || ''}
                 onChange={e => setSelectedOrg(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border text-gray-900 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 required
               >
                 <option value="">Select organization</option>
                 {organizations.map(org => (
-                  <option key={org.id} value={org.id}>
+                  <option key={org.id} value={org.id} className=" text-gray-900">
                     {org.name}
                   </option>
                 ))}
@@ -1054,7 +1164,7 @@ export default function SuperAdminView() {
                 type="email"
                 value={newOrg.adminEmail}
                 onChange={e => setNewOrg({ ...newOrg, adminEmail: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border text-gray-900 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 required
                 placeholder="admin@example.com"
               />
@@ -1067,7 +1177,7 @@ export default function SuperAdminView() {
                 type="password"
                 value={newOrg.adminPassword}
                 onChange={e => setNewOrg({ ...newOrg, adminPassword: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border text-gray-900 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 minLength={6}
                 required
                 placeholder="Minimum 6 characters"
@@ -1081,7 +1191,7 @@ export default function SuperAdminView() {
                 type="text"
                 value={newOrg.adminName}
                 onChange={e => setNewOrg({ ...newOrg, adminName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border text-gray-900 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="John Doe"
               />
             </div>
@@ -1089,7 +1199,7 @@ export default function SuperAdminView() {
               <button
                 type="submit"
                 disabled={creating || !selectedOrg}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 cursor-pointer bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Create Admin'}
               </button>
@@ -1223,32 +1333,77 @@ function PasswordResetButton({
   setNewPassword: (pwd: string) => void
   onResetPassword: (userId: string) => Promise<void>
 }) {
+  const validatePassword = (password: string): string | null => {
+    if (!password) {
+      return 'Password is required'
+    }
+    if (password.trim().length === 0) {
+      return 'Password cannot be empty or contain only spaces'
+    }
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters long'
+    }
+    if (password.length > 72) {
+      return 'Password must be no more than 72 characters long'
+    }
+    return null
+  }
+
+  const passwordError = newPassword ? validatePassword(newPassword) : null
+  const isPasswordValid = !passwordError && newPassword.length > 0
+
   if (resettingPassword === userId) {
     return (
-      <div className="flex gap-1 items-center">
-        <input
-          type="password"
-          value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
-          placeholder="New password"
-          className="w-32 px-2 py-1 border border-gray-300 rounded text-xs"
-          minLength={6}
-        />
-        <button
-          onClick={() => onResetPassword(userId)}
-          className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
-        >
-          Save
-        </button>
-        <button
-          onClick={() => {
-            setResettingPassword(null)
-            setNewPassword('')
-          }}
-          className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
-        >
-          Cancel
-        </button>
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1 items-center">
+          <div className="flex flex-col">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="New password (min 6 chars)"
+              className={`w-40 px-2 py-1 border rounded text-xs ${
+                passwordError
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                  : isPasswordValid
+                    ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+              }`}
+              minLength={6}
+              maxLength={72}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && isPasswordValid) {
+                  onResetPassword(userId)
+                }
+              }}
+            />
+            {passwordError && <span className="text-xs text-red-600 mt-0.5">{passwordError}</span>}
+            {isPasswordValid && (
+              <span className="text-xs text-green-600 mt-0.5">Password is valid</span>
+            )}
+          </div>
+          <button
+            onClick={() => onResetPassword(userId)}
+            disabled={!isPasswordValid}
+            className={`px-2 py-1 rounded text-xs transition-colors ${
+              isPasswordValid
+                ? 'bg-green-600 text-white hover:bg-green-700 cursor-pointer'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            title={!isPasswordValid ? 'Please enter a valid password' : 'Save password'}
+          >
+            Save
+          </button>
+          <button
+            onClick={() => {
+              setResettingPassword(null)
+              setNewPassword('')
+            }}
+            className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300 cursor-pointer"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     )
   }
@@ -1256,7 +1411,8 @@ function PasswordResetButton({
   return (
     <button
       onClick={() => setResettingPassword(userId)}
-      className="text-xs text-red-600 hover:text-red-900 px-2 py-1 hover:bg-red-50 rounded"
+      className="text-xs text-red-600 hover:text-red-900 px-2 py-1 hover:bg-red-50 rounded cursor-pointer transition-colors"
+      title={`Reset password for ${userEmail}`}
     >
       Reset Password
     </button>

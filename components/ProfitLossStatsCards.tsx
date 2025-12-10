@@ -13,18 +13,40 @@ export default function ProfitLossStatsCards() {
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
   useEffect(() => {
-    fetchStats()
-  }, [startDate, endDate])
+    const checkUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        if (profile) {
+          setUserRole(profile.role)
+        }
+      }
+    }
+    checkUserRole()
+  }, [])
+
+  useEffect(() => {
+    if (userRole && ['branch_manager', 'admin', 'tenant_admin'].includes(userRole)) {
+      fetchStats()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, userRole])
 
   const fetchStats = async () => {
     setLoading(true)
 
     try {
-      // Get user's organization_id for filtering
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -38,7 +60,6 @@ export default function ProfitLossStatsCards() {
         organizationId = profile?.organization_id || null
       }
 
-      // Validate date range
       if (startDate > endDate) {
         setEndDate(startDate)
         return
@@ -50,8 +71,6 @@ export default function ProfitLossStatsCards() {
         setEndDate(today)
         return
       }
-
-      // Fetch sales for date range
       let salesQuery = supabase
         .from('sales')
         .select('*, item:items(*)')
@@ -69,7 +88,6 @@ export default function ProfitLossStatsCards() {
         return
       }
 
-      // Group sales by item and calculate totals
       const itemMap = new Map<
         string,
         {
@@ -94,7 +112,6 @@ export default function ProfitLossStatsCards() {
 
       const details = Array.from(itemMap.values())
 
-      // Calculate totals
       const salesTotal = details.reduce((sum, d) => sum + d.totalSelling, 0)
       const costTotal = details.reduce((sum, d) => sum + d.totalCost, 0)
       const profitTotal = salesTotal - costTotal
@@ -103,7 +120,6 @@ export default function ProfitLossStatsCards() {
       setTotalCost(costTotal)
       setTotalProfit(profitTotal)
 
-      // Fetch expenses for date range
       let expensesQuery = supabase
         .from('expenses')
         .select('amount')
@@ -125,6 +141,10 @@ export default function ProfitLossStatsCards() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!userRole || !['branch_manager', 'admin', 'tenant_admin'].includes(userRole)) {
+    return null
   }
 
   if (loading) {

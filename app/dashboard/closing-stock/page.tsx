@@ -29,8 +29,9 @@ export default async function ClosingStockPage() {
     redirect('/admin')
   }
 
-  // Restrict closing stock to admins only
-  if (profile.role !== 'admin') {
+  // Allow staff, branch_manager, admin, and tenant_admin to access closing stock
+  const allowedRoles = ['staff', 'branch_manager', 'admin', 'tenant_admin']
+  if (!allowedRoles.includes(profile.role)) {
     redirect('/dashboard?error=unauthorized')
   }
 

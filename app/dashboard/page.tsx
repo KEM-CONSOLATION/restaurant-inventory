@@ -49,9 +49,12 @@ export default async function DashboardPage() {
 
         <DashboardStatsCards />
 
-        <div className="mt-8">
-          <ProfitLossStatsCards />
-        </div>
+        {/* Profit & Loss section - only visible to management roles (not staff) */}
+        {['branch_manager', 'admin', 'tenant_admin'].includes(profile.role) && (
+          <div className="mt-8">
+            <ProfitLossStatsCards />
+          </div>
+        )}
 
         <div className="mt-8">
           <ExpenseStatsCards />

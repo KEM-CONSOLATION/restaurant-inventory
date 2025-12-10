@@ -26,13 +26,42 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { user_id, new_password } = body
 
-    if (!user_id || !new_password) {
-      return NextResponse.json({ error: 'user_id and new_password are required' }, { status: 400 })
+    // Validate user_id
+    if (!user_id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(user_id)) {
+      return NextResponse.json({ error: 'Invalid user ID format' }, { status: 400 })
+    }
+
+    // Validate new_password
+    if (!new_password) {
+      return NextResponse.json({ error: 'New password is required' }, { status: 400 })
+    }
+
+    // Check for empty or whitespace-only password
+    if (typeof new_password !== 'string' || new_password.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Password cannot be empty or contain only spaces' },
+        { status: 400 }
+      )
+    }
+
+    // Check minimum length
     if (new_password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long' },
+        { status: 400 }
+      )
+    }
+
+    // Check maximum length (Supabase limit is typically 72 characters)
+    if (new_password.length > 72) {
+      return NextResponse.json(
+        { error: 'Password must be no more than 72 characters long' },
         { status: 400 }
       )
     }

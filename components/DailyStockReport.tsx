@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase/client'
 
-// Helper function to safely format date
 const formatDateSafely = (dateString: string): string => {
   if (!dateString || !dateString.trim()) return 'N/A'
   try {
@@ -59,7 +58,9 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
   const [calculating, setCalculating] = useState(false)
   const [editingItems, setEditingItems] = useState<Record<string, EditingItemData>>({})
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
-  const [userRole, setUserRole] = useState<'admin' | 'staff' | 'superadmin' | null>(null)
+  const [userRole, setUserRole] = useState<
+    'admin' | 'staff' | 'superadmin' | 'branch_manager' | 'tenant_admin' | null
+  >(null)
   const isPastDate = selectedDate < today
   const syncingRef = useRef(false) // Prevent infinite loops from sync operations
 
@@ -83,7 +84,6 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
   }, [])
 
   useEffect(() => {
-    // Set initial time only on client to avoid hydration mismatch
     setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
@@ -104,49 +104,36 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       if (data.success) {
         setReport(data)
 
-        // Auto-save/auto-create for today's date
         if (selectedDate === today) {
-          // Auto-save closing stock if viewing closing stock report
           if (type === 'closing') {
             await autoSaveClosingStock()
           }
 
-          // Auto-create opening stock if viewing opening stock report
           if (type === 'opening') {
             await autoCreateOpeningStock()
           }
         } else if (isPastDate && type === 'closing' && data.report && data.report.length > 0) {
-          // For past dates: Auto-calculate and save closing stock if it doesn't exist
-          // This ensures closing stock is always calculated from opening stock + restocking - sales - waste/spoilage
           await autoCalculatePastClosingStock(data)
         } else if (isPastDate && type === 'opening' && !syncingRef.current) {
-          // For past dates opening stock: Ensure it matches previous day's closing stock
-          // This maintains consistency: closing stock of one day = opening stock of next day
-          syncingRef.current = true // Set flag to prevent recursive calls
+          syncingRef.current = true
           const result = await ensureOpeningStockMatchesPreviousClosing(selectedDate)
-          syncingRef.current = false // Reset flag after sync
-          // Only refresh if update was successful and we're not in a manual sync
+          syncingRef.current = false
           if (result.success && result.updated && result.updated > 0) {
-            // Don't call fetchReport here to avoid infinite loop - the data is already updated
           }
         } else if (isPastDate && type === 'closing') {
-          // For past dates closing stock: Also ensure opening stock for next day matches this closing stock
-          // This maintains the chain: this closing stock → next day's opening stock
           if (!selectedDate || !selectedDate.trim()) {
             console.error('Invalid selectedDate for next date calculation')
             return
           }
 
-          // Ensure date is in YYYY-MM-DD format
           const dateStr = selectedDate.split('T')[0]
           if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
             console.error('Invalid date format for next date calculation')
             return
           }
 
-          // Calculate next date using string manipulation to avoid timezone issues
           const [year, month, day] = dateStr.split('-').map(Number)
-          const nextDate = new Date(year, month - 1, day) // month is 0-indexed, use local time
+          const nextDate = new Date(year, month - 1, day)
           if (isNaN(nextDate.getTime())) {
             console.error('Invalid date format for next date calculation')
             return
@@ -214,7 +201,6 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
 
         const result = await response.json()
         if (result.success) {
-          // Refresh the report to show saved values
           const reportResponse = await fetch(`/api/stock/report?date=${selectedDate}`)
           const reportData = await reportResponse.json()
           if (reportData.success) {
@@ -223,7 +209,6 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         }
       }
     } catch (error) {
-      // Silently fail - don't interrupt user experience
       console.error('Auto-save closing stock failed:', error)
     }
   }
@@ -246,62 +231,51 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
 
       const organizationId = profile?.organization_id || null
 
-      // Validate and calculate previous date
       if (!date || !date.trim()) {
         return { success: false, error: new Error('Invalid date provided') }
       }
 
-      // Ensure date is in YYYY-MM-DD format
       const dateStr = date.split('T')[0]
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         return { success: false, error: new Error('Invalid date format. Expected YYYY-MM-DD') }
       }
 
-      // Calculate previous date using string manipulation to avoid timezone issues
       const [year, month, day] = dateStr.split('-').map(Number)
-      const dateObj = new Date(year, month - 1, day) // month is 0-indexed
+      const dateObj = new Date(year, month - 1, day)
       if (isNaN(dateObj.getTime())) {
         return { success: false, error: new Error('Invalid date format') }
       }
 
-      // Subtract one day
       dateObj.setDate(dateObj.getDate() - 1)
 
-      // Format back to YYYY-MM-DD without timezone conversion
       const prevYear = dateObj.getFullYear()
       const prevMonth = String(dateObj.getMonth() + 1).padStart(2, '0')
       const prevDay = String(dateObj.getDate()).padStart(2, '0')
       const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
 
-      // Get previous day's closing stock
       const { data: prevClosingStock } = await supabase
         .from('closing_stock')
         .select('item_id, quantity')
         .eq('date', prevDateStr)
 
       if (!prevClosingStock || prevClosingStock.length === 0) {
-        // No previous closing stock, nothing to sync
         return { success: true, updated: 0 }
       }
 
-      // Get current opening stock for this date (use dateStr already defined above)
       const { data: currentOpeningStock } = await supabase
         .from('opening_stock')
         .select('item_id, quantity, cost_price, selling_price')
         .eq('date', dateStr)
 
-      // Get previous day's opening stock for prices
       const { data: prevOpeningStock } = await supabase
         .from('opening_stock')
         .select('item_id, cost_price, selling_price')
         .eq('date', prevDateStr)
 
-      // Get all items
       const { data: items } = await supabase.from('items').select('*').order('name')
 
       if (!items) return { success: false, error: new Error('Items not found') }
 
-      // Update opening stock to match previous day's closing stock
       const openingStockToUpsert = items
         .filter(item => {
           const hasClosingStock = prevClosingStock.some(cs => cs.item_id === item.id)
@@ -312,11 +286,8 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
           const currentOpening = currentOpeningStock?.find(os => os.item_id === item.id)
           const prevOpening = prevOpeningStock?.find(os => os.item_id === item.id)
 
-          // ALWAYS use previous day's closing stock as opening stock
-          // If no closing stock, use zero (quantities only come from opening/closing stock)
           const openingQty = closing ? parseFloat(closing.quantity.toString()) : 0
 
-          // Use prices from previous day's opening stock, or item's current prices
           const costPrice = prevOpening?.cost_price ?? currentOpening?.cost_price ?? item.cost_price
           const sellingPrice =
             prevOpening?.selling_price ?? currentOpening?.selling_price ?? item.selling_price
@@ -340,14 +311,12 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
         })
 
       if (openingStockToUpsert.length > 0) {
-        // Check if any updates are actually needed
         const needsUpdate = openingStockToUpsert.some(newStock => {
           const existing = currentOpeningStock?.find(os => os.item_id === newStock.item_id)
           return !existing || existing.quantity !== newStock.quantity
         })
 
         if (needsUpdate) {
-          // Upsert opening stock records
           const { error: upsertError } = await supabase
             .from('opening_stock')
             .upsert(openingStockToUpsert, {
@@ -622,9 +591,10 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       return
     }
 
-    // Only admins can save stock
-    if (userRole !== 'admin') {
-      alert('Only administrators can record opening and closing stock.')
+    // Only admins, tenant admins, and branch managers can save stock
+    const canEditStock = ['admin', 'tenant_admin', 'branch_manager'].includes(userRole || '')
+    if (!canEditStock) {
+      alert('Only administrators and branch managers can record opening and closing stock.')
       return
     }
 
@@ -658,7 +628,6 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
           quantity: editingData.quantity ?? item.opening_stock,
         }
 
-        // Only include prices for opening stock
         if (editingData.cost_price !== undefined) {
           baseData.cost_price = editingData.cost_price
         } else if (item.opening_stock_cost_price !== undefined) {
@@ -755,9 +724,11 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                   setSelectedDate(selectedDate)
                 }
               }}
-              disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+              disabled={!['admin', 'tenant_admin', 'branch_manager'].includes(userRole || '')}
               className={`px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-gray-900 ${
-                userRole !== 'admin' ? 'bg-gray-50 cursor-not-allowed' : 'cursor-pointer'
+                !['admin', 'tenant_admin', 'branch_manager'].includes(userRole || '')
+                  ? 'bg-gray-50 cursor-not-allowed'
+                  : 'cursor-pointer'
               }`}
             />
           </div>
@@ -894,9 +865,17 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                                 onChange={e =>
                                   handleValueChange(item.item_id, 'quantity', e.target.value)
                                 }
-                                disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+                                disabled={
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                }
                                 className={`w-24 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 ${
-                                  userRole !== 'admin' ? 'bg-gray-50 cursor-not-allowed' : ''
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                    ? 'bg-gray-50 cursor-not-allowed'
+                                    : ''
                                 }`}
                               />
                               <span className="text-gray-500">{item.item_unit}</span>
@@ -937,9 +916,17 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                                   handleValueChange(item.item_id, 'cost_price', e.target.value)
                                 }
                                 placeholder="0.00"
-                                disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+                                disabled={
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                }
                                 className={`w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 ${
-                                  userRole !== 'admin' ? 'bg-gray-50 cursor-not-allowed' : ''
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                    ? 'bg-gray-50 cursor-not-allowed'
+                                    : ''
                                 }`}
                               />
                             </td>
@@ -957,9 +944,17 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                                   handleValueChange(item.item_id, 'selling_price', e.target.value)
                                 }
                                 placeholder="0.00"
-                                disabled={userRole !== 'admin' && userRole !== 'superadmin'}
+                                disabled={
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                }
                                 className={`w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 ${
-                                  userRole !== 'admin' ? 'bg-gray-50 cursor-not-allowed' : ''
+                                  !['admin', 'tenant_admin', 'branch_manager'].includes(
+                                    userRole || ''
+                                  )
+                                    ? 'bg-gray-50 cursor-not-allowed'
+                                    : ''
                                 }`}
                               />
                             </td>
@@ -1010,7 +1005,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
           </div>
           {isPastDate && (
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-              {userRole === 'admin' || userRole === 'superadmin' ? (
+              {['admin', 'tenant_admin', 'branch_manager'].includes(userRole || '') ? (
                 <>
                   {type === 'closing' ? (
                     <button
