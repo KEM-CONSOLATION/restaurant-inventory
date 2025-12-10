@@ -65,3 +65,11 @@ COMMENT ON CONSTRAINT opening_stock_quantity_non_negative ON opening_stock IS 'P
 COMMENT ON CONSTRAINT waste_spoilage_quantity_positive ON waste_spoilage IS 'Ensures waste/spoilage quantities are always positive';
 COMMENT ON CONSTRAINT branch_transfers_quantity_positive ON branch_transfers IS 'Ensures transfer quantities are always positive';
 
+-- =====================================================
+-- UNIQUE INDEX FOR CLOSING STOCK UPSERT
+-- =====================================================
+-- Required for ON CONFLICT (item_id, date, organization_id, branch_id)
+-- used by auto-save closing stock API
+CREATE UNIQUE INDEX IF NOT EXISTS idx_closing_stock_item_date_org_branch
+  ON closing_stock (item_id, date, organization_id, branch_id);
+

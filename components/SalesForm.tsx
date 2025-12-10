@@ -1089,44 +1089,71 @@ export default function SalesForm() {
             <option value="">Select an item</option>
             {isPastDate ? (
               openingStocks.length > 0 ? (
-                openingStocks.map(openingStock => {
-                  const item = openingStock.item
-                  if (!item) return null
-
-                  const normalizedDate = date.split('T')[0]
-
-                  const itemRestocking = restockings.filter(r => {
-                    const restockDate = r.date.split('T')[0]
-                    return r.item_id === item.id && restockDate === normalizedDate
+                openingStocks
+                  .filter(os => {
+                    // Filter by branch_id if branchId is set
+                    if (branchId !== null && branchId !== undefined) {
+                      return os.branch_id === branchId
+                    }
+                    // If branchId is null (tenant admin), match null branch_id
+                    return os.branch_id === null || os.branch_id === undefined
                   })
-                  const totalRestocking = itemRestocking.reduce(
-                    (sum, r) => sum + parseFloat(r.quantity.toString()),
-                    0
-                  )
+                  .map(openingStock => {
+                    const item = openingStock.item
+                    if (!item) return null
 
-                  const itemSales = sales.filter(s => {
-                    const saleDate = s.date.split('T')[0]
-                    return s.item_id === item.id && saleDate === normalizedDate
+                    const normalizedDate = date.split('T')[0]
+
+                    const itemRestocking = restockings.filter(r => {
+                      const restockDate = r.date.split('T')[0]
+                      const matchesItemAndDate =
+                        r.item_id === item.id && restockDate === normalizedDate
+                      if (!matchesItemAndDate) return false
+
+                      // If branchId is set, must match branch_id
+                      if (branchId !== null && branchId !== undefined) {
+                        return r.branch_id === branchId
+                      }
+                      // If branchId is null (tenant admin), match null branch_id
+                      return r.branch_id === null || r.branch_id === undefined
+                    })
+                    const totalRestocking = itemRestocking.reduce(
+                      (sum, r) => sum + parseFloat(r.quantity.toString()),
+                      0
+                    )
+
+                    const itemSales = sales.filter(s => {
+                      const saleDate = s.date.split('T')[0]
+                      const matchesItemAndDate =
+                        s.item_id === item.id && saleDate === normalizedDate
+                      if (!matchesItemAndDate) return false
+
+                      // If branchId is set, must match branch_id (or null for legacy data)
+                      if (branchId !== null && branchId !== undefined) {
+                        return s.branch_id === branchId || s.branch_id === null
+                      }
+                      // If branchId is null (tenant admin), match null branch_id
+                      return s.branch_id === null || s.branch_id === undefined
+                    })
+                    const totalSales = itemSales.reduce((sum, s) => {
+                      if (editingSale && s.id === editingSale.id) return sum
+                      return sum + s.quantity
+                    }, 0)
+
+                    const openingQty = parseFloat(openingStock.quantity.toString())
+                    const available = Math.max(0, openingQty + totalRestocking - totalSales)
+
+                    const displayText =
+                      totalRestocking > 0
+                        ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
+                        : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
+
+                    return (
+                      <option key={item.id} value={item.id} className=" capitalize!">
+                        {displayText}
+                      </option>
+                    )
                   })
-                  const totalSales = itemSales.reduce((sum, s) => {
-                    if (editingSale && s.id === editingSale.id) return sum
-                    return sum + s.quantity
-                  }, 0)
-
-                  const openingQty = parseFloat(openingStock.quantity.toString())
-                  const available = Math.max(0, openingQty + totalRestocking - totalSales)
-
-                  const displayText =
-                    totalRestocking > 0
-                      ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
-                      : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
-
-                  return (
-                    <option key={item.id} value={item.id} className=" capitalize!">
-                      {displayText}
-                    </option>
-                  )
-                })
               ) : (
                 <option value="" disabled>
                   No opening stock found for this date. Please record opening stock first.
@@ -1136,28 +1163,54 @@ export default function SalesForm() {
               items.map(item => {
                 const normalizedDate = normalizeDate(date)
 
+                // Find opening stock matching item, date, AND branch_id (if branchId is set)
                 const itemOpeningStock = openingStocks.find(os => {
                   const osDate = normalizeDate(os.date)
-                  return os.item_id === item.id && osDate === normalizedDate
+                  const matchesItemAndDate = os.item_id === item.id && osDate === normalizedDate
+                  if (!matchesItemAndDate) return false
+
+                  // If branchId is set, must match branch_id (or both null)
+                  if (branchId !== null && branchId !== undefined) {
+                    return os.branch_id === branchId
+                  }
+                  // If branchId is null (tenant admin), match null branch_id
+                  return os.branch_id === null || os.branch_id === undefined
                 })
                 const openingQty = itemOpeningStock
                   ? parseFloat(itemOpeningStock.quantity.toString())
                   : 0
 
+                // Filter restocking by branch_id if branchId is set
                 const itemRestocking = restockings.filter(r => {
                   const restockDate = normalizeDate(r.date)
-                  return r.item_id === item.id && restockDate === normalizedDate
+                  const matchesItemAndDate = r.item_id === item.id && restockDate === normalizedDate
+                  if (!matchesItemAndDate) return false
+
+                  // If branchId is set, must match branch_id (or both null)
+                  if (branchId !== null && branchId !== undefined) {
+                    return r.branch_id === branchId
+                  }
+                  // If branchId is null (tenant admin), match null branch_id
+                  return r.branch_id === null || r.branch_id === undefined
                 })
                 const totalRestocking = itemRestocking.reduce(
                   (sum, r) => sum + parseFloat(r.quantity.toString()),
                   0
                 )
 
+                // Filter sales by branch_id if branchId is set
                 // Count ALL sales for this item on this date (not just from specific batch)
-                // This gives the total available stock across all batches
                 const itemSales = sales.filter(s => {
                   const saleDate = normalizeDate(s.date)
-                  return s.item_id === item.id && saleDate === normalizedDate
+                  const matchesItemAndDate = s.item_id === item.id && saleDate === normalizedDate
+                  if (!matchesItemAndDate) return false
+
+                  // If branchId is set, must match branch_id (or null for legacy data)
+                  if (branchId !== null && branchId !== undefined) {
+                    return s.branch_id === branchId || s.branch_id === null
+                  }
+                  // If branchId is null (tenant admin), match null branch_id
+                  return s.branch_id === null || s.branch_id === undefined
                 })
                 const totalSales = itemSales.reduce((sum, s) => {
                   if (editingSale && s.id === editingSale.id) return sum

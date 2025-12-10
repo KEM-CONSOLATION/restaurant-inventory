@@ -207,15 +207,30 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Upsert closing stock records (update if exists, insert if not)
-    const { error: upsertError } = await supabaseAdmin
-      .from('closing_stock')
-      .upsert(closingStockRecords, {
-        onConflict: 'item_id,date,organization_id,branch_id',
-      })
+    // SAFER UPSERT: delete existing keys for this date/org/branch, then insert
+    // This avoids ON CONFLICT errors if historical duplicates exist.
+    const deleteQuery = supabaseAdmin.from('closing_stock').delete().eq('date', date)
+    if (organizationId) {
+      deleteQuery.eq('organization_id', organizationId)
+    } else {
+      deleteQuery.is('organization_id', null)
+    }
+    if (branchId !== null && branchId !== undefined) {
+      deleteQuery.eq('branch_id', branchId)
+    } else {
+      deleteQuery.is('branch_id', null)
+    }
+    const { error: deleteError } = await deleteQuery
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
 
-    if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+    const { error: insertError } = await supabaseAdmin
+      .from('closing_stock')
+      .insert(closingStockRecords)
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
     // Trigger cascade update to sync opening stock for the next day
