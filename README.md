@@ -1,4 +1,4 @@
-# Zentro
+# Inventrax
 
 A full-stack inventory management system for restaurants built with Next.js, TypeScript, Tailwind CSS, and Supabase.
 
@@ -29,7 +29,7 @@ A full-stack inventory management system for restaurants built with Next.js, Typ
 ### 1. Clone and Install Dependencies
 
 ```bash
-cd zentro
+cd inventrax
 npm install
 ```
 
@@ -114,7 +114,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Project Structure
 
 ```
-zentro/
+inventrax/
 ├── app/
 │   ├── admin/          # Admin dashboard page
 │   ├── dashboard/      # Staff dashboard page

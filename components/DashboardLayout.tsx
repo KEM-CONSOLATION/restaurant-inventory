@@ -49,6 +49,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
       '/dashboard/recipes': 'nav-recipes',
       '/dashboard/inventory-valuation': 'nav-valuation',
       '/dashboard/transfers': 'nav-transfers',
+      '/dashboard/branches': 'nav-branches',
       '/admin': user.role === 'superadmin' ? 'nav-organizations' : 'nav-users',
     }
   }, [user.role])
@@ -321,6 +322,24 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
               </svg>
             ),
           },
+          ...(user.role === 'tenant_admin'
+            ? [
+                {
+                  name: 'Branches',
+                  href: '/dashboard/branches',
+                  icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
+                    </svg>
+                  ),
+                },
+              ]
+            : []),
           ...(user.role === 'admin'
             ? [
                 {
@@ -496,7 +515,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                   }
                   setRunTour(true)
                 }}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors touch-manipulation"
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors touch-manipulation cursor-pointer"
                 title="Run quick tour"
                 data-tour="tour-trigger"
               >

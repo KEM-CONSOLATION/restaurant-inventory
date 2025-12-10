@@ -300,7 +300,7 @@ export default function BranchManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? 'Saving...' : editingBranch ? 'Update Branch' : 'Create Branch'}
               </button>
@@ -360,7 +360,7 @@ export default function BranchManagement() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => handleEdit(branch)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4 cursor-pointer"
+                      className="text-indigo-600 hover:text-indigo-900 mr-4 cursor-pointer transition-colors"
                     >
                       Edit
                     </button>

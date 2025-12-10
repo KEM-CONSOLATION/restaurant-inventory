@@ -10,7 +10,7 @@ interface OrganizationLogoProps {
 }
 
 const DEFAULT_BRAND_COLOR = '#3B82F6'
-const APP_NAME = 'Zentro'
+const APP_NAME = 'Inventrax'
 
 export function getDefaultBrandColor() {
   return DEFAULT_BRAND_COLOR
@@ -62,11 +62,11 @@ export default function OrganizationLogo({
     )
   }
 
-  // Fallback to Zentro logo if no organization logo
+  // Fallback to Inventrax logo if no organization logo
   const { width, height } = imageSizes[size]
   return (
     <Image
-      src="/Zentro.jpeg"
+      src="/Inventrax.jpeg"
       alt={APP_NAME}
       width={width}
       height={height}

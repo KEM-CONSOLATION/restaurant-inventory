@@ -41,8 +41,16 @@ const baseSteps: Step[] = [
 
 const adminSteps: Step[] = [
   {
+    target: '[data-tour="nav-branches"]',
+    content:
+      '⚠️ IMPORTANT: Before doing anything else, create at least one branch for your business. All inventory, sales, and stock records are tied to branches. Click here to add your first branch now.',
+    placement: 'right',
+    disableBeacon: false,
+  },
+  {
     target: '[data-tour="branch-selector"]',
-    content: 'Switch branches to view and manage data per location or all branches.',
+    content:
+      'Once you have branches, use this selector to switch between branches or view all branches. Make sure to select a branch before recording sales or stock.',
     placement: 'bottom',
     disableBeacon: false,
   },
@@ -85,7 +93,7 @@ const superAdminSteps: Step[] = [
   },
 ]
 
-function getStepsForRole(user: Profile): Step[] {
+function getStepsForRole(user: Profile, hasBranches: boolean = false): Step[] {
   const role = user.role as string
 
   if (role === 'superadmin') {
@@ -93,10 +101,23 @@ function getStepsForRole(user: Profile): Step[] {
   }
 
   if (role === 'tenant_admin' || role === 'admin') {
+    // For tenant admins without branches, prioritize branch creation
+    const branchSteps: Step[] = hasBranches
+      ? adminSteps
+      : [
+          {
+            target: '[data-tour="nav-branches"]',
+            content:
+              '⚠️ CRITICAL FIRST STEP: You must create at least one branch before recording any inventory, sales, or stock. All data is tied to branches. Click here to add your first branch now - this is required!',
+            placement: 'right' as const,
+            disableBeacon: false,
+          },
+        ]
+
     const filteredAdminSteps =
       role === 'admin'
-        ? adminSteps
-        : adminSteps.filter(step => step.target !== '[data-tour="nav-users"]')
+        ? branchSteps
+        : branchSteps.filter(step => step.target !== '[data-tour="nav-users"]')
 
     return [...filteredAdminSteps, ...baseSteps]
   }
@@ -110,7 +131,26 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [enhancedSteps, setEnhancedSteps] = useState<Step[]>([])
-  const baseStepsList = useMemo(() => getStepsForRole(user), [user])
+  const [hasBranches, setHasBranches] = useState(false)
+
+  // Check if organization has branches
+  useEffect(() => {
+    if (!mounted || user.role === 'superadmin') return
+
+    const checkBranches = async () => {
+      try {
+        const { useBranchStore } = await import('@/lib/stores/branchStore')
+        const { availableBranches } = useBranchStore.getState()
+        setHasBranches(availableBranches.length > 0)
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    checkBranches()
+  }, [mounted, user.role])
+
+  const baseStepsList = useMemo(() => getStepsForRole(user, hasBranches), [user, hasBranches])
 
   // Ensure component only renders on client
   useEffect(() => {

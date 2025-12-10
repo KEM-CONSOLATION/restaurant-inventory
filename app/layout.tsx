@@ -14,8 +14,34 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Zentro - Inventory Management System',
-  description: 'Track opening stock, closing stock, and daily sales with Zentro',
+  title: 'Inventrax - Inventory Management System',
+  description:
+    'Track opening stock, closing stock, and daily sales with Inventrax. Streamline your inventory management with real-time tracking, multi-branch support, and comprehensive reporting.',
+  keywords:
+    'inventory management, stock tracking, inventory system, restaurant inventory, inventory software',
+  authors: [{ name: 'Inventrax' }],
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
+  openGraph: {
+    title: 'Inventrax - Inventory Management System',
+    description:
+      'Streamline your inventory management with real-time tracking and comprehensive reporting',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Inventrax - Inventory Management System',
+    description: 'Streamline your inventory management with real-time tracking',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+  },
+  themeColor: '#3B82F6',
 }
 
 export default function RootLayout({
