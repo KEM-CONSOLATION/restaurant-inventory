@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { Item, Sale, Profile, OpeningStock, Restocking } from '@/types/database'
+import { Item, Sale } from '@/types/database'
 import { format } from 'date-fns'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useItemsStore } from '@/lib/stores/itemsStore'
 import { useSalesStore } from '@/lib/stores/salesStore'
 import { useStockStore } from '@/lib/stores/stockStore'
+import Pagination from './Pagination'
 
 // Helper function to normalize date format
 const normalizeDateStr = (dateStr: string): string => {
@@ -32,6 +33,7 @@ function StockAvailabilityDisplay({
   item,
   quantityToRecord,
   organizationId,
+  branchId,
 }: {
   itemId: string
   date: string
@@ -40,6 +42,7 @@ function StockAvailabilityDisplay({
   item: Item
   quantityToRecord?: number
   organizationId: string | null
+  branchId?: string | null
 }) {
   const [availableStock, setAvailableStock] = useState<number | null>(null)
   const [closingStock, setClosingStock] = useState<number | null>(null)
@@ -88,6 +91,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
+          if (branchId) openingStockQuery = openingStockQuery.eq('branch_id', branchId)
           const { data: openingStockData } = await openingStockQuery.limit(1)
 
           let restockingQuery = supabase
@@ -96,6 +100,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
+          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
           const { data: restocking } = await restockingQuery
 
           let wasteSpoilageQuery = supabase
@@ -104,6 +109,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
+          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
           const { data: wasteSpoilage } = await wasteSpoilageQuery
 
           const openingStock =
@@ -133,6 +139,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
+          if (branchId) openingStockQuery = openingStockQuery.eq('branch_id', branchId)
           const { data: openingStockData } = await openingStockQuery.limit(1)
 
           let restockingQuery = supabase
@@ -141,6 +148,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
+          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
           const { data: restocking } = await restockingQuery
 
           let wasteSpoilageQuery = supabase
@@ -149,6 +157,7 @@ function StockAvailabilityDisplay({
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
+          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
           const { data: wasteSpoilage } = await wasteSpoilageQuery
 
           const openingStock =
@@ -190,7 +199,7 @@ function StockAvailabilityDisplay({
     return () => {
       isMounted = false
     }
-  }, [itemId, date, quantityToRecord, isPastDate, organizationId])
+  }, [itemId, date, quantityToRecord, isPastDate, organizationId, branchId])
 
   if (loading) {
     return <p className="text-xs text-gray-500">Calculating availability...</p>
@@ -215,7 +224,17 @@ function StockAvailabilityDisplay({
 }
 
 export default function SalesForm() {
-  const { user, profile, organizationId, branchId, isAdmin, isSuperAdmin, isStaff } = useAuth()
+  const {
+    user,
+    profile,
+    organizationId,
+    branchId,
+    isAdmin,
+    isSuperAdmin,
+    isStaff,
+    isTenantAdmin,
+    currentBranch,
+  } = useAuth()
 
   // Use Zustand stores
   const { items, fetchItems: fetchItemsFromStore } = useItemsStore()
@@ -249,6 +268,8 @@ export default function SalesForm() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [editingSale, setEditingSale] = useState<Sale | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10 // Reduced to show pagination more readily
   const today = format(new Date(), 'yyyy-MM-dd')
   const isPastDate = date < today
 
@@ -590,6 +611,16 @@ export default function SalesForm() {
     setLoading(true)
     setMessage(null)
 
+    // Tenant admins must have a branch selected to record sales
+    if (isTenantAdmin && (!branchId || !currentBranch)) {
+      setMessage({
+        type: 'error',
+        text: 'Please select a branch from the branch selector above to record sales.',
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       const {
         data: { user },
@@ -702,24 +733,35 @@ export default function SalesForm() {
             return
           }
 
-          const { data: openingStockData } = await supabase
+          let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
-            .limit(1)
+          if (branchId) {
+            openingStockQuery = openingStockQuery.eq('branch_id', branchId)
+          }
+          const { data: openingStockData } = await openingStockQuery.limit(1)
 
-          const { data: restocking } = await supabase
+          let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
+          if (branchId) {
+            restockingQuery = restockingQuery.eq('branch_id', branchId)
+          }
+          const { data: restocking } = await restockingQuery
 
-          const { data: existingSales } = await supabase
+          let salesQuery = supabase
             .from('sales')
             .select('id, quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
+          if (branchId) {
+            salesQuery = salesQuery.eq('branch_id', branchId)
+          }
+          const { data: existingSales } = await salesQuery
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -737,24 +779,35 @@ export default function SalesForm() {
         } else {
           const normalizedDate = date.split('T')[0]
 
-          const { data: openingStockData } = await supabase
+          let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
-            .limit(1)
+          if (branchId) {
+            openingStockQuery = openingStockQuery.eq('branch_id', branchId)
+          }
+          const { data: openingStockData } = await openingStockQuery.limit(1)
 
-          const { data: restocking } = await supabase
+          let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
+          if (branchId) {
+            restockingQuery = restockingQuery.eq('branch_id', branchId)
+          }
+          const { data: restocking } = await restockingQuery
 
-          const { data: existingSales } = await supabase
+          let salesQuery = supabase
             .from('sales')
             .select('id, quantity')
             .eq('item_id', selectedItem)
             .eq('date', normalizedDate)
+          if (branchId) {
+            salesQuery = salesQuery.eq('branch_id', branchId)
+          }
+          const { data: existingSales } = await salesQuery
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -1019,6 +1072,17 @@ export default function SalesForm() {
           </div>
         )}
 
+        {/* Show warning if tenant admin hasn't selected a branch */}
+        {isTenantAdmin && (!branchId || !currentBranch) && (
+          <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 mb-4">
+            <p className="font-medium">⚠️ Please select a branch to record sales</p>
+            <p className="text-sm mt-1">
+              You are viewing data from all branches. To record sales, please select a specific
+              branch from the branch selector above.
+            </p>
+          </div>
+        )}
+
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
             Date{' '}
@@ -1084,76 +1148,55 @@ export default function SalesForm() {
               setTotalPrice('')
             }}
             required
-            className="w-full capitalize px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
+            disabled={isTenantAdmin && (!branchId || !currentBranch)}
+            className={`w-full capitalize px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 ${
+              isTenantAdmin && (!branchId || !currentBranch)
+                ? 'bg-gray-50 cursor-not-allowed opacity-50'
+                : 'cursor-pointer'
+            }`}
           >
             <option value="">Select an item</option>
             {isPastDate ? (
               openingStocks.length > 0 ? (
-                openingStocks
-                  .filter(os => {
-                    // Filter by branch_id if branchId is set
-                    if (branchId !== null && branchId !== undefined) {
-                      return os.branch_id === branchId
-                    }
-                    // If branchId is null (tenant admin), match null branch_id
-                    return os.branch_id === null || os.branch_id === undefined
+                openingStocks.map(openingStock => {
+                  const item = openingStock.item
+                  if (!item) return null
+
+                  const normalizedDate = date.split('T')[0]
+
+                  // Restocking and sales are already filtered by branch_id in the store
+                  const itemRestocking = restockings.filter(r => {
+                    const restockDate = r.date.split('T')[0]
+                    return r.item_id === item.id && restockDate === normalizedDate
                   })
-                  .map(openingStock => {
-                    const item = openingStock.item
-                    if (!item) return null
+                  const totalRestocking = itemRestocking.reduce(
+                    (sum, r) => sum + parseFloat(r.quantity.toString()),
+                    0
+                  )
 
-                    const normalizedDate = date.split('T')[0]
-
-                    const itemRestocking = restockings.filter(r => {
-                      const restockDate = r.date.split('T')[0]
-                      const matchesItemAndDate =
-                        r.item_id === item.id && restockDate === normalizedDate
-                      if (!matchesItemAndDate) return false
-
-                      // If branchId is set, must match branch_id
-                      if (branchId !== null && branchId !== undefined) {
-                        return r.branch_id === branchId
-                      }
-                      // If branchId is null (tenant admin), match null branch_id
-                      return r.branch_id === null || r.branch_id === undefined
-                    })
-                    const totalRestocking = itemRestocking.reduce(
-                      (sum, r) => sum + parseFloat(r.quantity.toString()),
-                      0
-                    )
-
-                    const itemSales = sales.filter(s => {
-                      const saleDate = s.date.split('T')[0]
-                      const matchesItemAndDate =
-                        s.item_id === item.id && saleDate === normalizedDate
-                      if (!matchesItemAndDate) return false
-
-                      // If branchId is set, must match branch_id (or null for legacy data)
-                      if (branchId !== null && branchId !== undefined) {
-                        return s.branch_id === branchId || s.branch_id === null
-                      }
-                      // If branchId is null (tenant admin), match null branch_id
-                      return s.branch_id === null || s.branch_id === undefined
-                    })
-                    const totalSales = itemSales.reduce((sum, s) => {
-                      if (editingSale && s.id === editingSale.id) return sum
-                      return sum + s.quantity
-                    }, 0)
-
-                    const openingQty = parseFloat(openingStock.quantity.toString())
-                    const available = Math.max(0, openingQty + totalRestocking - totalSales)
-
-                    const displayText =
-                      totalRestocking > 0
-                        ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
-                        : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
-
-                    return (
-                      <option key={item.id} value={item.id} className=" capitalize!">
-                        {displayText}
-                      </option>
-                    )
+                  const itemSales = sales.filter(s => {
+                    const saleDate = s.date.split('T')[0]
+                    return s.item_id === item.id && saleDate === normalizedDate
                   })
+                  const totalSales = itemSales.reduce((sum, s) => {
+                    if (editingSale && s.id === editingSale.id) return sum
+                    return sum + s.quantity
+                  }, 0)
+
+                  const openingQty = parseFloat(openingStock.quantity.toString())
+                  const available = Math.max(0, openingQty + totalRestocking - totalSales)
+
+                  const displayText =
+                    totalRestocking > 0
+                      ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
+                      : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
+
+                  return (
+                    <option key={item.id} value={item.id} className=" capitalize!">
+                      {displayText}
+                    </option>
+                  )
+                })
               ) : (
                 <option value="" disabled>
                   No opening stock found for this date. Please record opening stock first.
@@ -1163,55 +1206,79 @@ export default function SalesForm() {
               items.map(item => {
                 const normalizedDate = normalizeDate(date)
 
-                // Find opening stock matching item, date, AND branch_id (if branchId is set)
-                const itemOpeningStock = openingStocks.find(os => {
+                // Opening stock from store (includes NULL branch_id as fallback)
+                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
+                // This is because the migration created incorrect branch-specific records
+                // Once database is cleaned up, we can switch back to preferring branch-specific
+                const nullBranchOpeningStock = openingStocks.find(os => {
                   const osDate = normalizeDate(os.date)
-                  const matchesItemAndDate = os.item_id === item.id && osDate === normalizedDate
-                  if (!matchesItemAndDate) return false
-
-                  // If branchId is set, must match branch_id (or both null)
-                  if (branchId !== null && branchId !== undefined) {
-                    return os.branch_id === branchId
-                  }
-                  // If branchId is null (tenant admin), match null branch_id
-                  return os.branch_id === null || os.branch_id === undefined
+                  return (
+                    os.item_id === item.id && osDate === normalizedDate && os.branch_id === null
+                  )
                 })
+                const branchSpecificOpeningStock =
+                  branchId && !nullBranchOpeningStock
+                    ? openingStocks.find(os => {
+                        const osDate = normalizeDate(os.date)
+                        return (
+                          os.item_id === item.id &&
+                          osDate === normalizedDate &&
+                          os.branch_id === branchId
+                        )
+                      })
+                    : null
+                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
+                const itemOpeningStock = nullBranchOpeningStock || branchSpecificOpeningStock
                 const openingQty = itemOpeningStock
                   ? parseFloat(itemOpeningStock.quantity.toString())
                   : 0
 
-                // Filter restocking by branch_id if branchId is set
-                const itemRestocking = restockings.filter(r => {
+                // Restocking from store (includes NULL branch_id as fallback)
+                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
+                const nullBranchRestocking = restockings.filter(r => {
                   const restockDate = normalizeDate(r.date)
-                  const matchesItemAndDate = r.item_id === item.id && restockDate === normalizedDate
-                  if (!matchesItemAndDate) return false
-
-                  // If branchId is set, must match branch_id (or both null)
-                  if (branchId !== null && branchId !== undefined) {
-                    return r.branch_id === branchId
-                  }
-                  // If branchId is null (tenant admin), match null branch_id
-                  return r.branch_id === null || r.branch_id === undefined
+                  return (
+                    r.item_id === item.id && restockDate === normalizedDate && r.branch_id === null
+                  )
                 })
+                const branchSpecificRestocking = branchId
+                  ? restockings.filter(r => {
+                      const restockDate = normalizeDate(r.date)
+                      return (
+                        r.item_id === item.id &&
+                        restockDate === normalizedDate &&
+                        r.branch_id === branchId
+                      )
+                    })
+                  : []
+                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
+                const itemRestocking =
+                  nullBranchRestocking.length > 0 ? nullBranchRestocking : branchSpecificRestocking
                 const totalRestocking = itemRestocking.reduce(
                   (sum, r) => sum + parseFloat(r.quantity.toString()),
                   0
                 )
 
-                // Filter sales by branch_id if branchId is set
-                // Count ALL sales for this item on this date (not just from specific batch)
-                const itemSales = sales.filter(s => {
+                // Sales from store (includes NULL branch_id as fallback)
+                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
+                const nullBranchSales = sales.filter(s => {
                   const saleDate = normalizeDate(s.date)
-                  const matchesItemAndDate = s.item_id === item.id && saleDate === normalizedDate
-                  if (!matchesItemAndDate) return false
-
-                  // If branchId is set, must match branch_id (or null for legacy data)
-                  if (branchId !== null && branchId !== undefined) {
-                    return s.branch_id === branchId || s.branch_id === null
-                  }
-                  // If branchId is null (tenant admin), match null branch_id
-                  return s.branch_id === null || s.branch_id === undefined
+                  return (
+                    s.item_id === item.id && saleDate === normalizedDate && s.branch_id === null
+                  )
                 })
+                const branchSpecificSales = branchId
+                  ? sales.filter(s => {
+                      const saleDate = normalizeDate(s.date)
+                      return (
+                        s.item_id === item.id &&
+                        saleDate === normalizedDate &&
+                        s.branch_id === branchId
+                      )
+                    })
+                  : []
+                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
+                const itemSales = nullBranchSales.length > 0 ? nullBranchSales : branchSpecificSales
                 const totalSales = itemSales.reduce((sum, s) => {
                   if (editingSale && s.id === editingSale.id) return sum
                   return sum + parseFloat(s.quantity.toString())
@@ -1415,6 +1482,7 @@ export default function SalesForm() {
                     item={item}
                     quantityToRecord={parseFloat(quantity) || 0}
                     organizationId={organizationId}
+                    branchId={branchId}
                   />
                 </div>
               )
@@ -1500,7 +1568,7 @@ export default function SalesForm() {
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (isTenantAdmin && (!branchId || !currentBranch))}
             className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
           >
             {loading ? 'Saving...' : editingSale ? 'Update Sales' : 'Record Sales'}
@@ -1521,101 +1589,116 @@ export default function SalesForm() {
       <div className="mt-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Recent Sales/Usage Records</h3>
         {sales.length > 0 ? (
-          <div className="overflow-x-auto -mx-6 px-6">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Item
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Batch
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Quantity
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Price/Unit
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Total Price
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Payment Mode
-                  </th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                    Description
-                  </th>
-                  {(userRole === 'admin' || userRole === 'superadmin') && (
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                      Actions
+          <>
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Date
                     </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sales.map(sale => (
-                  <tr key={sale.id}>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(sale.date), 'MMM dd, yyyy')}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {sale.item?.name || 'Unknown'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {sale.batch_label ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {sale.batch_label}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No batch info</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {sale.quantity} {sale.item?.unit || ''}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      ₦{sale.price_per_unit.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ₦{sale.total_price.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          sale.payment_mode === 'cash'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {sale.payment_mode === 'cash' ? 'Cash' : 'Transfer'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-900">{sale.description || '-'}</td>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Item
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Batch
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Quantity
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Price/Unit
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Total Price
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Payment Mode
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      Description
+                    </th>
                     {(userRole === 'admin' || userRole === 'superadmin') && (
-                      <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(sale)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sale.id)}
-                          className="text-red-600 hover:text-red-900 cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </td>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                        Actions
+                      </th>
                     )}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sales
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map(sale => (
+                      <tr key={sale.id}>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {format(new Date(sale.date), 'MMM dd, yyyy')}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {sale.item?.name || 'Unknown'}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {sale.batch_label ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {sale.batch_label}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">No batch info</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {sale.quantity} {sale.item?.unit || ''}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          ₦{sale.price_per_unit.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                          ₦{sale.total_price.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              sale.payment_mode === 'cash'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {sale.payment_mode === 'cash' ? 'Cash' : 'Transfer'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-900">
+                          {sale.description || '-'}
+                        </td>
+                        {(userRole === 'admin' || userRole === 'superadmin') && (
+                          <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(sale)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(sale.id)}
+                              className="text-red-600 hover:text-red-900 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {sales.length > itemsPerPage && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(sales.length / itemsPerPage)}
+                totalItems={sales.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </>
         ) : (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <p className="text-gray-500">

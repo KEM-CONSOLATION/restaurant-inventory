@@ -16,6 +16,7 @@ import {
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import Pagination from './Pagination'
 
 interface SalesSummary {
   date: string
@@ -35,9 +36,12 @@ export default function SalesReports() {
     (Sale & { item?: Item; recorded_by_profile?: Profile })[]
   >([])
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10 // Reduced to show pagination more readily
 
   useEffect(() => {
     fetchReports()
+    setCurrentPage(1) // Reset to first page when period/date changes
   }, [selectedPeriod, selectedDate])
 
   const fetchReports = async () => {
@@ -368,31 +372,42 @@ export default function SalesReports() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {salesDetails.map(sale => (
-                      <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {format(new Date(sale.date), 'MMM dd, yyyy')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {sale.item?.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {sale.quantity} {sale.item?.unit || ''}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₦{sale.price_per_unit.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ₦{sale.total_price.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {sale.description || '-'}
-                        </td>
-                      </tr>
-                    ))}
+                    {salesDetails
+                      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                      .map(sale => (
+                        <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {format(new Date(sale.date), 'MMM dd, yyyy')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {sale.item?.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {sale.quantity} {sale.item?.unit || ''}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₦{sale.price_per_unit.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ₦{sale.total_price.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            {sale.description || '-'}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
+            )}
+            {salesDetails.length > itemsPerPage && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(salesDetails.length / itemsPerPage)}
+                totalItems={salesDetails.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+              />
             )}
           </div>
         </>

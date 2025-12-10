@@ -64,9 +64,9 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         salesQuery = salesQuery.eq('organization_id', organizationId)
       }
 
-      // Filter by branch_id if provided; include legacy null branch rows for admins to see historical data
+      // Always filter by branch_id when provided
       if (branchId !== undefined && branchId !== null) {
-        salesQuery = salesQuery.or(`branch_id.eq.${branchId},branch_id.is.null`)
+        salesQuery = salesQuery.eq('branch_id', branchId)
       }
 
       const { data, error } = await salesQuery

@@ -11,6 +11,7 @@ import {
   formatCurrency,
   formatDate,
 } from '@/lib/export-utils'
+import Pagination from './Pagination'
 
 export default function HistoryView() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -25,11 +26,18 @@ export default function HistoryView() {
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'opening' | 'closing' | 'sales'>('opening')
   const [organization, setOrganization] = useState<Organization | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10 // Reduced to show pagination more readily
 
   useEffect(() => {
     fetchData()
     fetchOrganization()
   }, [startDate, endDate])
+
+  // Reset pagination when tab or date range changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, startDate, endDate])
 
   const fetchOrganization = async () => {
     try {
@@ -470,26 +478,37 @@ export default function HistoryView() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {openingStocks.map(stock => (
-                        <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {format(new Date(stock.date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {stock.item?.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {stock.quantity} {stock.item?.unit || ''}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {stock.recorded_by_profile?.full_name ||
-                              stock.recorded_by_profile?.email}
-                          </td>
-                        </tr>
-                      ))}
+                      {openingStocks
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map(stock => (
+                          <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {format(new Date(stock.date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {stock.item?.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {stock.quantity} {stock.item?.unit || ''}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {stock.recorded_by_profile?.full_name ||
+                                stock.recorded_by_profile?.email}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+              {openingStocks.length > itemsPerPage && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(openingStocks.length / itemsPerPage)}
+                  totalItems={openingStocks.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
               )}
             </div>
           )}
@@ -521,26 +540,37 @@ export default function HistoryView() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {closingStocks.map(stock => (
-                        <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {format(new Date(stock.date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {stock.item?.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {stock.quantity} {stock.item?.unit || ''}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {stock.recorded_by_profile?.full_name ||
-                              stock.recorded_by_profile?.email}
-                          </td>
-                        </tr>
-                      ))}
+                      {closingStocks
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map(stock => (
+                          <tr key={stock.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {format(new Date(stock.date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {stock.item?.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {stock.quantity} {stock.item?.unit || ''}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {stock.recorded_by_profile?.full_name ||
+                                stock.recorded_by_profile?.email}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+              {closingStocks.length > itemsPerPage && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(closingStocks.length / itemsPerPage)}
+                  totalItems={closingStocks.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
               )}
             </div>
           )}
@@ -589,34 +619,46 @@ export default function HistoryView() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {sales.map(sale => (
-                        <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {format(new Date(sale.date), 'MMM dd, yyyy')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {sale.item?.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {sale.quantity} {sale.item?.unit || ''}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₦{sale.price_per_unit.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ₦{sale.total_price.toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {sale.description || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {sale.recorded_by_profile?.full_name || sale.recorded_by_profile?.email}
-                          </td>
-                        </tr>
-                      ))}
+                      {sales
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map(sale => (
+                          <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {format(new Date(sale.date), 'MMM dd, yyyy')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {sale.item?.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {sale.quantity} {sale.item?.unit || ''}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              ₦{sale.price_per_unit.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              ₦{sale.total_price.toFixed(2)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {sale.description || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {sale.recorded_by_profile?.full_name ||
+                                sale.recorded_by_profile?.email}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+              {sales.length > itemsPerPage && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(sales.length / itemsPerPage)}
+                  totalItems={sales.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                />
               )}
             </div>
           )}

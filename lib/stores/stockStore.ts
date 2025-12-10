@@ -110,8 +110,9 @@ export const useStockStore = create<StockState>((set, get) => ({
       }
 
       // Filter by branch_id if provided
+      // Include null branch_id records (legacy data) as fallback
       if (branchId !== undefined && branchId !== null) {
-        query = query.eq('branch_id', branchId)
+        query = query.or(`branch_id.eq.${branchId},branch_id.is.null`)
       }
 
       const { data, error } = await query
@@ -174,8 +175,9 @@ export const useStockStore = create<StockState>((set, get) => ({
       }
 
       // Filter by branch_id if provided
+      // Include NULL branch_id records as fallback (legacy data that's correct)
       if (branchId !== undefined && branchId !== null) {
-        query = query.eq('branch_id', branchId)
+        query = query.or(`branch_id.eq.${branchId},branch_id.is.null`)
       }
 
       const { data, error } = await query
@@ -238,8 +240,9 @@ export const useStockStore = create<StockState>((set, get) => ({
       }
 
       // Filter by branch_id if provided
+      // Include NULL branch_id records as fallback (legacy data that's correct)
       if (branchId !== undefined && branchId !== null) {
-        query = query.eq('branch_id', branchId)
+        query = query.or(`branch_id.eq.${branchId},branch_id.is.null`)
       }
 
       const { data, error } = await query

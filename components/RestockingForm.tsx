@@ -5,9 +5,11 @@ import { supabase } from '@/lib/supabase/client'
 import { Item, Restocking, Profile } from '@/types/database'
 import { format } from 'date-fns'
 import { useAuth } from '@/lib/hooks/useAuth'
+import Pagination from './Pagination'
 
 export default function RestockingForm() {
-  const { organizationId, branchId, isAdmin, isSuperAdmin, profile } = useAuth()
+  const { organizationId, branchId, isAdmin, isSuperAdmin, profile, isTenantAdmin, currentBranch } =
+    useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [restockings, setRestockings] = useState<
     (Restocking & { item?: Item; recorded_by_profile?: Profile })[]
@@ -27,6 +29,8 @@ export default function RestockingForm() {
   const [openingStock, setOpeningStock] = useState<number | null>(null)
   const [currentTotal, setCurrentTotal] = useState<number | null>(null)
   const [filterDate, setFilterDate] = useState<string>('') // Date filter for records table
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10 // Reduced to show pagination more readily
 
   const fetchRestockings = useCallback(async () => {
     let restockingQuery = supabase.from('restocking').select(`
@@ -203,6 +207,16 @@ export default function RestockingForm() {
     e.preventDefault()
     setLoading(true)
     setMessage(null)
+
+    // Tenant admins must have a branch selected to record restocking
+    if (isTenantAdmin && (!branchId || !currentBranch)) {
+      setMessage({
+        type: 'error',
+        text: 'Please select a branch from the branch selector above to record restocking.',
+      })
+      setLoading(false)
+      return
+    }
 
     try {
       const {
@@ -578,6 +592,17 @@ export default function RestockingForm() {
           </div>
         )}
 
+        {/* Show warning if tenant admin hasn't selected a branch */}
+        {isTenantAdmin && (!branchId || !currentBranch) && (
+          <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 mb-4">
+            <p className="font-medium">⚠️ Please select a branch to record restocking</p>
+            <p className="text-sm mt-1">
+              You are viewing data from all branches. To record restocking, please select a specific
+              branch from the branch selector above.
+            </p>
+          </div>
+        )}
+
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
             Date {!isAdmin && <span className="text-xs text-gray-500">(Today only)</span>}
@@ -637,7 +662,12 @@ export default function RestockingForm() {
             value={selectedItem}
             onChange={e => setSelectedItem(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 cursor-pointer"
+            disabled={isTenantAdmin && (!branchId || !currentBranch)}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 ${
+              isTenantAdmin && (!branchId || !currentBranch)
+                ? 'bg-gray-50 cursor-not-allowed opacity-50'
+                : 'cursor-pointer'
+            }`}
           >
             <option value="">Select an item</option>
             {items.map(item => (
@@ -753,7 +783,7 @@ export default function RestockingForm() {
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (isTenantAdmin && (!branchId || !currentBranch))}
             className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
           >
             {loading ? 'Saving...' : editingRestocking ? 'Update Restocking' : 'Record Restocking'}
@@ -827,76 +857,78 @@ export default function RestockingForm() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {restockings.map(restocking => (
-                  <tr key={restocking.id}>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(restocking.date), 'MMM dd, yyyy')}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {restocking.item?.name || 'Unknown'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      +{restocking.quantity} {restocking.item?.unit || ''}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {restocking.cost_price !== null && restocking.cost_price !== undefined
-                        ? `₦${restocking.cost_price.toFixed(2)}`
-                        : restocking.item?.cost_price
-                          ? `₦${restocking.item.cost_price.toFixed(2)}`
-                          : '-'}
-                      {restocking.cost_price !== null &&
-                        restocking.cost_price !== undefined &&
-                        restocking.item &&
-                        restocking.cost_price !== restocking.item.cost_price && (
-                          <span
-                            className="ml-1 text-xs text-green-600"
-                            title="Price updated during restocking"
-                          >
-                            ●
-                          </span>
-                        )}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {restocking.selling_price !== null && restocking.selling_price !== undefined
-                        ? `₦${restocking.selling_price.toFixed(2)}`
-                        : restocking.item?.selling_price
-                          ? `₦${restocking.item.selling_price.toFixed(2)}`
-                          : '-'}
-                      {restocking.selling_price !== null &&
-                        restocking.selling_price !== undefined &&
-                        restocking.item &&
-                        restocking.selling_price !== restocking.item.selling_price && (
-                          <span
-                            className="ml-1 text-xs text-green-600"
-                            title="Price updated during restocking"
-                          >
-                            ●
-                          </span>
-                        )}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                      {restocking.recorded_by_profile?.full_name ||
-                        restocking.recorded_by_profile?.email ||
-                        'Unknown'}
-                    </td>
-                    {isAdmin && (
-                      <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(restocking)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(restocking.id)}
-                          className="text-red-600 hover:text-red-900 cursor-pointer"
-                        >
-                          Delete
-                        </button>
+                {restockings
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map(restocking => (
+                    <tr key={restocking.id}>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {format(new Date(restocking.date), 'MMM dd, yyyy')}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {restocking.item?.name || 'Unknown'}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        +{restocking.quantity} {restocking.item?.unit || ''}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {restocking.cost_price !== null && restocking.cost_price !== undefined
+                          ? `₦${restocking.cost_price.toFixed(2)}`
+                          : restocking.item?.cost_price
+                            ? `₦${restocking.item.cost_price.toFixed(2)}`
+                            : '-'}
+                        {restocking.cost_price !== null &&
+                          restocking.cost_price !== undefined &&
+                          restocking.item &&
+                          restocking.cost_price !== restocking.item.cost_price && (
+                            <span
+                              className="ml-1 text-xs text-green-600"
+                              title="Price updated during restocking"
+                            >
+                              ●
+                            </span>
+                          )}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                        {restocking.selling_price !== null && restocking.selling_price !== undefined
+                          ? `₦${restocking.selling_price.toFixed(2)}`
+                          : restocking.item?.selling_price
+                            ? `₦${restocking.item.selling_price.toFixed(2)}`
+                            : '-'}
+                        {restocking.selling_price !== null &&
+                          restocking.selling_price !== undefined &&
+                          restocking.item &&
+                          restocking.selling_price !== restocking.item.selling_price && (
+                            <span
+                              className="ml-1 text-xs text-green-600"
+                              title="Price updated during restocking"
+                            >
+                              ●
+                            </span>
+                          )}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                        {restocking.recorded_by_profile?.full_name ||
+                          restocking.recorded_by_profile?.email ||
+                          'Unknown'}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(restocking)}
+                            className="text-indigo-600 hover:text-indigo-900 mr-3 cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(restocking.id)}
+                            className="text-red-600 hover:text-red-900 cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -906,6 +938,15 @@ export default function RestockingForm() {
               ? `No restocking records found for ${format(new Date(filterDate), 'MMM dd, yyyy')}`
               : 'No restocking records found'}
           </div>
+        )}
+        {restockings.length > itemsPerPage && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(restockings.length / itemsPerPage)}
+            totalItems={restockings.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
     </div>
