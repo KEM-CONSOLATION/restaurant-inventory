@@ -29,8 +29,9 @@ export default async function OpeningStockPage() {
     redirect('/admin')
   }
 
-  // Allow staff, branch_manager, admin, and tenant_admin to access opening stock
-  const allowedRoles = ['staff', 'branch_manager', 'admin', 'tenant_admin']
+  // Only branch_manager, admin, and tenant_admin can access opening stock
+  // Staff and controller don't need this - they use issuance workflow
+  const allowedRoles = ['branch_manager', 'admin', 'tenant_admin']
   if (!allowedRoles.includes(profile.role)) {
     redirect('/dashboard?error=unauthorized')
   }

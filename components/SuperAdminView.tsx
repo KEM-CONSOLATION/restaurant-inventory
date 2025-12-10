@@ -32,8 +32,13 @@ export default function SuperAdminView() {
   const [creating, setCreating] = useState(false)
   const [editingOrg, setEditingOrg] = useState<string | null>(null)
   const [editingBranding, setEditingBranding] = useState<string | null>(null)
+  const [editingBusinessType, setEditingBusinessType] = useState<string | null>(null)
+  const [editingStockTimes, setEditingStockTimes] = useState<string | null>(null)
+  const [businessTypeData, setBusinessTypeData] = useState({ business_type: '' })
+  const [stockTimesData, setStockTimesData] = useState({ opening_time: '', closing_time: '' })
   const [newOrg, setNewOrg] = useState({
     name: '',
+    business_type: '',
     adminEmail: '',
     adminPassword: '',
     adminName: '',
@@ -205,6 +210,7 @@ export default function SuperAdminView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newOrg.name,
+          business_type: newOrg.business_type || null,
           user_id: user.id,
         }),
       })
@@ -232,7 +238,7 @@ export default function SuperAdminView() {
       }
 
       setMessage({ type: 'success', text: 'Organization and admin created successfully' })
-      setNewOrg({ name: '', adminEmail: '', adminPassword: '', adminName: '' })
+      setNewOrg({ name: '', business_type: '', adminEmail: '', adminPassword: '', adminName: '' })
       setActiveTab('organizations')
       fetchOrganizations()
     } catch (error) {
@@ -245,7 +251,7 @@ export default function SuperAdminView() {
     }
   }
 
-  const handleUpdateOrganization = async (orgId: string, name: string) => {
+  const handleUpdateOrganization = async (orgId: string, name: string, business_type?: string) => {
     setCreating(true)
     setMessage(null)
 
@@ -256,6 +262,7 @@ export default function SuperAdminView() {
         body: JSON.stringify({
           organization_id: orgId,
           name,
+          business_type: business_type !== undefined ? business_type : undefined,
         }),
       })
 
@@ -269,6 +276,41 @@ export default function SuperAdminView() {
       setMessage({
         type: 'error',
         text: error instanceof Error ? error.message : 'Failed to update organization',
+      })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleUpdateBusinessType = async (orgId: string) => {
+    setCreating(true)
+    setMessage(null)
+
+    try {
+      const org = organizations.find(o => o.id === orgId)
+      if (!org) throw new Error('Organization not found')
+
+      const response = await fetch('/api/organizations/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_id: orgId,
+          name: org.name,
+          business_type: businessTypeData.business_type || null,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to update business type')
+
+      setMessage({ type: 'success', text: 'Business type updated successfully' })
+      setEditingBusinessType(null)
+      setBusinessTypeData({ business_type: '' })
+      fetchOrganizations()
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to update business type',
       })
     } finally {
       setCreating(false)
@@ -648,6 +690,11 @@ export default function SuperAdminView() {
                           <h3 className="text-lg font-semibold text-gray-900">{org.name}</h3>
                         )}
                         <div className="flex gap-6 mt-2 text-sm text-gray-600">
+                          {org.business_type && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                              {org.business_type.charAt(0).toUpperCase() + org.business_type.slice(1)}
+                            </span>
+                          )}
                           <span>Users: {org.metrics?.total_users || 0}</span>
                           <span>Items: {org.metrics?.total_items || 0}</span>
                           <span>Sales: {org.metrics?.total_sales || 0}</span>
@@ -682,6 +729,31 @@ export default function SuperAdminView() {
                             <button
                               onClick={e => {
                                 e.stopPropagation()
+                                setEditingBusinessType(org.id)
+                                setBusinessTypeData({
+                                  business_type: org.business_type || '',
+                                })
+                              }}
+                              className="px-3 py-1 cursor-pointer text-xs text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              Business Type
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                setEditingStockTimes(org.id)
+                                setStockTimesData({
+                                  opening_time: org.opening_time ? org.opening_time.substring(0, 5) : '',
+                                  closing_time: org.closing_time ? org.closing_time.substring(0, 5) : '',
+                                })
+                              }}
+                              className="px-3 py-1 cursor-pointer text-xs text-green-600 hover:text-green-900 hover:bg-green-50 rounded transition-colors"
+                            >
+                              Stock Times
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
                                 setEditingBranding(org.id)
                                 setBrandingData({
                                   logo_url: org.logo_url || '',
@@ -712,6 +784,114 @@ export default function SuperAdminView() {
 
                   {expandedOrgs.has(org.id) && (
                     <div className="px-6 py-4 bg-white border-t border-gray-200">
+                      {editingBusinessType === org.id ? (
+                        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                            Edit Business Type
+                          </h4>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Business Type
+                              </label>
+                              <select
+                                value={businessTypeData.business_type}
+                                onChange={e =>
+                                  setBusinessTypeData({ business_type: e.target.value })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                              >
+                                <option value="">Select business type</option>
+                                <option value="bar">Bar</option>
+                                <option value="restaurant">Restaurant</option>
+                                <option value="bakery">Bakery</option>
+                                <option value="cafe">Cafe</option>
+                                <option value="retail">Retail</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleUpdateBusinessType(org.id)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm cursor-pointer"
+                              >
+                                Save Business Type
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingBusinessType(null)
+                                  setBusinessTypeData({ business_type: '' })
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {editingStockTimes === org.id ? (
+                        <div className="mb-6 p-4 bg-green-50 rounded-lg">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                            Edit Stock Calculation Times
+                          </h4>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Opening Stock Time (Optional)
+                              </label>
+                              <input
+                                type="time"
+                                value={stockTimesData.opening_time}
+                                onChange={e =>
+                                  setStockTimesData({ ...stockTimesData, opening_time: e.target.value })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent cursor-pointer"
+                                placeholder="08:00"
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Optional: Time when opening stock is automatically calculated (e.g., 08:00). 
+                                If not set, opening stock will be calculated on-demand when you visit the page.
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Closing Stock Time (Optional)
+                              </label>
+                              <input
+                                type="time"
+                                value={stockTimesData.closing_time}
+                                onChange={e =>
+                                  setStockTimesData({ ...stockTimesData, closing_time: e.target.value })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent cursor-pointer"
+                                placeholder="22:00"
+                              />
+                              <p className="mt-1 text-xs text-gray-500">
+                                Optional: Time when closing stock is automatically calculated (e.g., 22:00). 
+                                If not set, closing stock will be calculated on-demand when you visit the page.
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleUpdateStockTimes(org.id)}
+                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm cursor-pointer"
+                              >
+                                Save Stock Times
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingStockTimes(null)
+                                  setStockTimesData({ opening_time: '', closing_time: '' })
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                       {editingBranding === org.id ? (
                         <div className="mb-6 p-4 bg-purple-50 rounded-lg">
                           <h4 className="text-sm font-semibold text-gray-700 mb-4">
@@ -1071,6 +1251,24 @@ export default function SuperAdminView() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Business Type (Optional)
+              </label>
+              <select
+                value={newOrg.business_type}
+                onChange={e => setNewOrg({ ...newOrg, business_type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent cursor-pointer"
+              >
+                <option value="">Select business type</option>
+                <option value="bar">Bar</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="bakery">Bakery</option>
+                <option value="cafe">Cafe</option>
+                <option value="retail">Retail</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Admin Email (Optional)
               </label>
               <input
@@ -1126,7 +1324,7 @@ export default function SuperAdminView() {
                 type="button"
                 onClick={() => {
                   setActiveTab('organizations')
-                  setNewOrg({ name: '', adminEmail: '', adminPassword: '', adminName: '' })
+                  setNewOrg({ name: '', business_type: '', adminEmail: '', adminPassword: '', adminName: '' })
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >

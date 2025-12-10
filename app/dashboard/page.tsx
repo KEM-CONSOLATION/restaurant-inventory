@@ -8,6 +8,7 @@ import DashboardStatsCards from '@/components/DashboardStatsCards'
 import ProfitLossStatsCards from '@/components/ProfitLossStatsCards'
 import ExpenseStatsCards from '@/components/ExpenseStatsCards'
 import LowStockAlerts from '@/components/LowStockAlerts'
+import StaffSalesRanking from '@/components/StaffSalesRanking'
 import DashboardExportButton from '@/components/DashboardExportButton'
 
 export default async function DashboardPage() {
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
           <DashboardExportButton />
         </div>
 
-        <DashboardStatsCards />
+        <DashboardStatsCards userRole={profile.role} />
 
         {/* Profit & Loss section - only visible to management roles (not staff) */}
         {['branch_manager', 'admin', 'tenant_admin'].includes(profile.role) && (
@@ -56,13 +57,26 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <div className="mt-8">
-          <ExpenseStatsCards />
-        </div>
+        {/* Expenses - only visible to management roles (not staff) */}
+        {['branch_manager', 'admin', 'tenant_admin', 'controller'].includes(profile.role) && (
+          <div className="mt-8">
+            <ExpenseStatsCards />
+          </div>
+        )}
 
-        <div className="mt-8">
-          <LowStockAlerts />
-        </div>
+        {/* Low Stock Alerts - only visible to management roles (not staff) */}
+        {['branch_manager', 'admin', 'tenant_admin', 'controller'].includes(profile.role) && (
+          <div className="mt-8">
+            <LowStockAlerts />
+          </div>
+        )}
+
+        {/* Staff Sales Ranking - only visible to management roles */}
+        {['branch_manager', 'admin', 'tenant_admin'].includes(profile.role) && (
+          <div className="mt-8">
+            <StaffSalesRanking />
+          </div>
+        )}
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SalesTrendChart />

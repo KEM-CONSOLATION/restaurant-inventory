@@ -1,9 +1,9 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
-import SalesForm from '@/components/SalesForm'
+import StaffDashboard from '@/components/StaffDashboard'
 
-export default async function SalesPage() {
+export default async function MyIssuancesPage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -24,28 +24,27 @@ export default async function SalesPage() {
     redirect('/login?error=unauthorized')
   }
 
+  if (profile.role !== 'staff') {
+    redirect('/dashboard?error=unauthorized')
+  }
+
   // Superadmins should only access admin page
   if (profile.role === 'superadmin') {
     redirect('/admin')
-  }
-
-  // Only branch_manager, admin, and tenant_admin can access manual sales
-  // Staff and controller use issuance workflow instead
-  const allowedRoles = ['branch_manager', 'admin', 'tenant_admin']
-  if (!allowedRoles.includes(profile.role)) {
-    redirect('/dashboard?error=unauthorized')
   }
 
   return (
     <DashboardLayout user={profile}>
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Sales/Usage</h1>
-          <p className="mt-2 text-gray-600">Record items used during sales</p>
+          <h1 className="text-3xl font-bold text-gray-900">My Issuances</h1>
+          <p className="mt-2 text-gray-600">
+            View items issued to you and confirm receipt. Track your sales performance.
+          </p>
         </div>
-
-        <SalesForm />
+        <StaffDashboard />
       </div>
     </DashboardLayout>
   )
 }
+

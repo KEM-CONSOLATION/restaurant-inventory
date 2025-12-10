@@ -1,9 +1,9 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
-import SalesForm from '@/components/SalesForm'
+import StaffPerformanceReports from '@/components/StaffPerformanceReports'
 
-export default async function SalesPage() {
+export default async function StaffPerformancePage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -24,28 +24,29 @@ export default async function SalesPage() {
     redirect('/login?error=unauthorized')
   }
 
+  if (
+    !['controller', 'branch_manager', 'admin', 'tenant_admin'].includes(profile.role)
+  ) {
+    redirect('/dashboard?error=unauthorized')
+  }
+
   // Superadmins should only access admin page
   if (profile.role === 'superadmin') {
     redirect('/admin')
-  }
-
-  // Only branch_manager, admin, and tenant_admin can access manual sales
-  // Staff and controller use issuance workflow instead
-  const allowedRoles = ['branch_manager', 'admin', 'tenant_admin']
-  if (!allowedRoles.includes(profile.role)) {
-    redirect('/dashboard?error=unauthorized')
   }
 
   return (
     <DashboardLayout user={profile}>
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Sales/Usage</h1>
-          <p className="mt-2 text-gray-600">Record items used during sales</p>
+          <h1 className="text-3xl font-bold text-gray-900">Staff Performance Reports</h1>
+          <p className="mt-2 text-gray-600">
+            Track staff sales performance based on issued items and returns.
+          </p>
         </div>
-
-        <SalesForm />
+        <StaffPerformanceReports />
       </div>
     </DashboardLayout>
   )
 }
+

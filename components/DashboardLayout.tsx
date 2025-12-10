@@ -137,7 +137,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller don't need this
     },
     {
       name: 'Restocking',
@@ -147,7 +147,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       ),
-      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff cannot access
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller cannot access
     },
     {
       name: 'Closing Stock',
@@ -157,7 +157,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller don't need this
     },
     {
       name: 'Sales/Usage',
@@ -172,7 +172,82 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller use issuance workflow
+    },
+    {
+      name: 'Issue Items',
+      href: '/dashboard/issuances',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      ),
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'],
+    },
+    {
+      name: 'Returns',
+      href: '/dashboard/returns',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+      ),
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'],
+    },
+    {
+      name: 'Reconciliation',
+      href: '/dashboard/reconciliation',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
+        </svg>
+      ),
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'],
+    },
+    {
+      name: 'Staff Performance',
+      href: '/dashboard/staff-performance',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      ),
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'],
+    },
+    {
+      name: 'My Issuances',
+      href: '/dashboard/my-issuances',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
+        </svg>
+      ),
+      roles: ['staff'],
     },
     {
       name: 'History',
@@ -187,7 +262,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'], // Staff don't need history
     },
     {
       name: 'Sales Reports',
@@ -202,7 +277,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'], // Staff don't need sales reports
     },
     {
       name: 'Profit & Loss',
@@ -232,7 +307,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff cannot access
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller cannot access
     },
     {
       name: 'Expenses',
@@ -247,7 +322,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'], // Staff don't need expenses
     },
     {
       name: 'Waste/Spoilage',
@@ -262,7 +337,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['controller', 'branch_manager', 'admin', 'tenant_admin'], // Staff don't need waste/spoilage
     },
     {
       name: 'Inventory Valuation',
@@ -277,7 +352,7 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
           />
         </svg>
       ),
-      roles: ['staff', 'branch_manager', 'admin', 'tenant_admin'],
+      roles: ['branch_manager', 'admin', 'tenant_admin'], // Staff and controller don't need this
     },
     {
       name: 'Branches',

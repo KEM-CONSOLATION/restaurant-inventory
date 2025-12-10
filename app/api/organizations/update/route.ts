@@ -24,7 +24,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { organization_id, name, logo_url, brand_color } = body
+    const { organization_id, name, logo_url, brand_color, business_type, opening_time, closing_time } = body
 
     if (!organization_id || !name) {
       return NextResponse.json({ error: 'organization_id and name are required' }, { status: 400 })
@@ -76,6 +76,48 @@ export async function PUT(request: NextRequest) {
         updateData.brand_color = brand_color.toUpperCase()
       } else {
         updateData.brand_color = null
+      }
+    }
+
+    if (business_type !== undefined) {
+      updateData.business_type = business_type || null
+    }
+
+    if (opening_time !== undefined) {
+      // Validate time format (HH:MM:SS or HH:MM) - allow empty string to set to null
+      if (opening_time && typeof opening_time === 'string' && opening_time.trim() !== '') {
+        const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9](:([0-5][0-9]))?$/
+        if (!timeRegex.test(opening_time)) {
+          return NextResponse.json(
+            { error: 'Invalid opening time format. Use HH:MM:SS or HH:MM (e.g., 08:00:00 or 08:00)' },
+            { status: 400 }
+          )
+        }
+        // Normalize to HH:MM:SS format
+        const parts = opening_time.split(':')
+        updateData.opening_time = parts.length === 2 ? `${opening_time}:00` : opening_time
+      } else {
+        // Empty string or null means no automatic calculation - use on-demand
+        updateData.opening_time = null
+      }
+    }
+
+    if (closing_time !== undefined) {
+      // Validate time format (HH:MM:SS or HH:MM) - allow empty string to set to null
+      if (closing_time && typeof closing_time === 'string' && closing_time.trim() !== '') {
+        const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9](:([0-5][0-9]))?$/
+        if (!timeRegex.test(closing_time)) {
+          return NextResponse.json(
+            { error: 'Invalid closing time format. Use HH:MM:SS or HH:MM (e.g., 22:00:00 or 22:00)' },
+            { status: 400 }
+          )
+        }
+        // Normalize to HH:MM:SS format
+        const parts = closing_time.split(':')
+        updateData.closing_time = parts.length === 2 ? `${closing_time}:00` : closing_time
+      } else {
+        // Empty string or null means no automatic calculation - use on-demand
+        updateData.closing_time = null
       }
     }
 

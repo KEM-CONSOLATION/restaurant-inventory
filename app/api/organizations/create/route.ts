@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { name, user_id } = body
+    const { name, user_id, business_type } = body
 
     if (!name || !user_id) {
       return NextResponse.json({ error: 'Missing name or user_id' }, { status: 400 })
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         name,
         slug,
         created_by: user_id,
+        business_type: business_type || null,
       })
       .select()
       .single()

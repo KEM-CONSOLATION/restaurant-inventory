@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
-export default function DashboardStatsCards() {
+interface DashboardStatsCardsProps {
+  userRole?: string
+}
+
+export default function DashboardStatsCards({ userRole }: DashboardStatsCardsProps) {
   const [stats, setStats] = useState({
     openingStockCount: 0,
     closingStockCount: 0,
@@ -17,11 +21,7 @@ export default function DashboardStatsCards() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
 
-  useEffect(() => {
-    fetchStats()
-  }, [startDate, endDate])
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
       // Get user's organization_id for filtering
@@ -86,10 +86,15 @@ export default function DashboardStatsCards() {
         todaySalesAmount: salesAmount,
       })
     } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [startDate, endDate])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   if (loading) {
     return (
@@ -219,76 +224,82 @@ export default function DashboardStatsCards() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Opening Stock Card */}
-        <Link
-          href="/dashboard/opening-stock"
-          className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole === 'staff' ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6`}>
+        {/* Opening Stock Card - Hidden for staff */}
+        {userRole !== 'staff' && (
+          <Link
+            href="/dashboard/opening-stock"
+            className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                <svg
+                  className="w-6 h-6 text-indigo-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+              </div>
               <svg
-                className="w-6 h-6 text-indigo-600"
+                className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
-            <svg
-              className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-1">Opening Stock</h2>
-          <p className="text-3xl font-bold text-indigo-600 mb-2">{stats.openingStockCount}</p>
-          <p className="text-gray-600 text-sm">Items recorded {dateLabel}</p>
-        </Link>
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Opening Stock</h2>
+            <p className="text-3xl font-bold text-indigo-600 mb-2">{stats.openingStockCount}</p>
+            <p className="text-gray-600 text-sm">Items recorded {dateLabel}</p>
+          </Link>
+        )}
 
-        <Link
-          href="/dashboard/closing-stock"
-          className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+        {/* Closing Stock Card - Hidden for staff */}
+        {userRole !== 'staff' && (
+          <Link
+            href="/dashboard/closing-stock"
+            className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <svg
+                  className="w-6 h-6 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
               <svg
-                className="w-6 h-6 text-green-600"
+                className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
-            <svg
-              className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-1">Closing Stock</h2>
-          <p className="text-3xl font-bold text-green-600 mb-2">{stats.closingStockCount}</p>
-          <p className="text-gray-600 text-sm">Items recorded {dateLabel}</p>
-        </Link>
+            <h2 className="text-xl font-semibold text-gray-900 mb-1">Closing Stock</h2>
+            <p className="text-3xl font-bold text-green-600 mb-2">{stats.closingStockCount}</p>
+            <p className="text-gray-600 text-sm">Items recorded {dateLabel}</p>
+          </Link>
+        )}
 
+        {/* Sales Card - Visible to all roles */}
         <Link
           href="/dashboard/sales"
           className="bg-white shadow-sm rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer group"

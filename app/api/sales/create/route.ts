@@ -87,7 +87,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
-    // Note: All authenticated users (staff, branch_manager, admin) can record sales
+    // Restrict controller and staff from creating manual sales
+    // They should use the issuance workflow instead
+    if (profile.role === 'controller' || profile.role === 'staff') {
+      return NextResponse.json(
+        {
+          error:
+            'Controllers and staff cannot record manual sales. Please use the issuance workflow.',
+        },
+        { status: 403 }
+      )
+    }
+
+    // Note: Only branch_manager, admin, and tenant_admin can record manual sales
     // RLS policies enforce organization and branch-level access control
     // Superadmins are blocked at the frontend level
 
@@ -108,11 +120,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot record sales for future dates' }, { status: 400 })
     }
 
-    // Staff and branch_manager can only record sales for today's date
-    // Only admins can record sales for past dates (for backfilling)
-    if ((profile.role === 'staff' || profile.role === 'branch_manager') && date < today) {
+    // Branch managers can only record sales for today's date
+    // Only admins and tenant_admins can record sales for past dates (for backfilling)
+    if (profile.role === 'branch_manager' && date < today) {
       return NextResponse.json(
-        { error: "Staff and branch managers can only record sales for today's date" },
+        { error: "Branch managers can only record sales for today's date" },
         { status: 403 }
       )
     }
@@ -455,6 +467,8 @@ export async function POST(request: NextRequest) {
           restocking_id: restocking_id || null,
           opening_stock_id: opening_stock_id || null,
           batch_label: batch_label || null,
+          source: 'manual',
+          issuance_id: null,
         })
         .select()
         .single()

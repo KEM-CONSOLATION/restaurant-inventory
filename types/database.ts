@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'staff' | 'superadmin' | 'branch_manager' | 'tenant_admin'
+export type UserRole = 'admin' | 'staff' | 'superadmin' | 'branch_manager' | 'tenant_admin' | 'controller'
 
 export interface Organization {
   id: string
@@ -9,6 +9,9 @@ export interface Organization {
   updated_at: string
   logo_url?: string | null
   brand_color?: string | null
+  business_type?: string | null
+  opening_time?: string | null
+  closing_time?: string | null
 }
 
 export interface Branch {
@@ -98,6 +101,8 @@ export interface Sale {
   restocking_id: string | null
   opening_stock_id: string | null
   batch_label: string | null
+  source: 'manual' | 'issuance'
+  issuance_id: string | null
   organization_id: string | null
   branch_id: string | null
   created_at: string
@@ -105,6 +110,49 @@ export interface Sale {
   recorded_by_profile?: Profile
   restocking?: Restocking
   opening_stock?: OpeningStock
+  branch?: Branch
+  issuance?: Issuance
+}
+
+export interface Issuance {
+  id: string
+  item_id: string
+  staff_id: string
+  quantity: number
+  issued_by: string
+  date: string
+  shift: string | null
+  confirmed_at: string | null
+  organization_id: string | null
+  branch_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  item?: Item
+  staff?: Profile
+  issued_by_profile?: Profile
+  branch?: Branch
+  returns?: Return[]
+}
+
+export interface Return {
+  id: string
+  issuance_id: string
+  item_id: string
+  staff_id: string
+  quantity: number
+  returned_to: string
+  date: string
+  reason: string | null
+  organization_id: string | null
+  branch_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  issuance?: Issuance
+  item?: Item
+  staff?: Profile
+  returned_to_profile?: Profile
   branch?: Branch
 }
 
