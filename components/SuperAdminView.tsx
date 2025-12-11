@@ -1041,7 +1041,7 @@ export default function SuperAdminView() {
                                     .replace(/[^a-z0-9-]/g, '')
                                   setSubdomainData({ subdomain: value })
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-black! placeholder:text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 placeholder="lacuisine"
                               />
                               <p className="mt-1 text-xs text-gray-500">
@@ -1465,8 +1465,8 @@ export default function SuperAdminView() {
                 placeholder="lacuisine"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Optional: Custom subdomain (e.g., "lacuisine" for lacuisine.countpadi.com). Leave
-                blank to auto-generate from organization name.
+                Optional: Custom subdomain (e.g., &quot;lacuisine&quot; for
+                lacuisine.countpadi.com). Leave blank to auto-generate from organization name.
               </p>
             </div>
             <div>
