@@ -367,6 +367,22 @@ export default function RestockingForm() {
             .eq('id', selectedItem)
             .single()
 
+          // Get branch_id: use provided branchId, or get main branch for organization
+          let finalBranchId = branchId
+          if (!finalBranchId && profile?.organization_id) {
+            // If no branchId, get organization's main branch
+            const { data: mainBranch } = await supabase
+              .from('branches')
+              .select('id')
+              .eq('organization_id', profile.organization_id)
+              .eq('is_active', true)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .single()
+
+            finalBranchId = mainBranch?.id || null
+          }
+
           // Create opening stock with quantity 0 (if it doesn't exist)
           // Use previous day's opening stock prices, or item's prices as fallback
           // Do NOT use restocking prices - they only affect the next day
@@ -387,7 +403,7 @@ export default function RestockingForm() {
             recorded_by: currentUser.id,
             notes: 'Auto-created from restocking',
             organization_id: profile?.organization_id || null,
-            branch_id: branchId || null,
+            branch_id: finalBranchId,
           }
 
           // Use previous day's prices if available, otherwise item's prices

@@ -85,69 +85,70 @@ function StockAvailabilityDisplay({
         const orgId = organizationId
 
         if (isPastDate) {
-          // For opening stock, prefer NULL branch_id (legacy data), then branch-specific
-          let openingStockQuery = supabase
+          // Get opening stock - prefer branch-specific, fallback to NULL branch_id
+          let branchSpecificQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
-          if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
+          if (orgId) branchSpecificQuery = branchSpecificQuery.eq('organization_id', orgId)
+          if (branchId) branchSpecificQuery = branchSpecificQuery.eq('branch_id', branchId)
+          const { data: branchSpecificData } = await branchSpecificQuery.limit(1)
 
-          // First try to get NULL branch_id (legacy data)
-          let nullBranchQuery = openingStockQuery.is('branch_id', null)
-          const { data: nullBranchData } = await nullBranchQuery.limit(1)
-
-          // If no NULL branch_id found and branchId is provided, try branch-specific
-          let openingStockData = nullBranchData
-          if (!openingStockData && branchId) {
-            const branchQuery = openingStockQuery.eq('branch_id', branchId)
-            const { data: branchData } = await branchQuery.limit(1)
-            openingStockData = branchData
+          // If no branch-specific found, try NULL branch_id as fallback
+          let openingStockData = branchSpecificData
+          if (!openingStockData || openingStockData.length === 0) {
+            let nullBranchQuery = supabase
+              .from('opening_stock')
+              .select('quantity')
+              .eq('item_id', itemId)
+              .eq('date', normalizedDate)
+              .is('branch_id', null)
+            if (orgId) nullBranchQuery = nullBranchQuery.eq('organization_id', orgId)
+            const { data: nullBranchData } = await nullBranchQuery.limit(1)
+            openingStockData = nullBranchData
           }
 
-          // For restocking, prefer NULL branch_id (legacy data), then branch-specific
+          // Get restocking
           let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
+          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
+          const { data: restocking } = await restockingQuery
 
-          // First try NULL branch_id
-          let nullBranchRestockingQuery = restockingQuery.is('branch_id', null)
-          const { data: nullBranchRestocking } = await nullBranchRestockingQuery
-
-          // If branchId provided, also get branch-specific and combine
-          let restocking = nullBranchRestocking || []
-          if (branchId) {
-            const branchRestockingQuery = restockingQuery.eq('branch_id', branchId)
-            const { data: branchRestocking } = await branchRestockingQuery
-            if (branchRestocking) {
-              restocking = [...restocking, ...branchRestocking]
-            }
-          }
-
-          // For waste/spoilage, prefer NULL branch_id (legacy data), then branch-specific
+          // Get waste/spoilage
           let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
+          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
+          const { data: wasteSpoilage } = await wasteSpoilageQuery
 
-          // First try NULL branch_id
-          let nullBranchWasteQuery = wasteSpoilageQuery.is('branch_id', null)
-          const { data: nullBranchWaste } = await nullBranchWasteQuery
+          // Get outgoing transfers (from this branch)
+          let outgoingTransfersQuery = supabase
+            .from('branch_transfers')
+            .select('quantity')
+            .eq('item_id', itemId)
+            .eq('date', normalizedDate)
+          if (orgId) outgoingTransfersQuery = outgoingTransfersQuery.eq('organization_id', orgId)
+          if (branchId)
+            outgoingTransfersQuery = outgoingTransfersQuery.eq('from_branch_id', branchId)
+          const { data: outgoingTransfers } = await outgoingTransfersQuery
 
-          // If branchId provided, also get branch-specific and combine
-          let wasteSpoilage = nullBranchWaste || []
-          if (branchId) {
-            const branchWasteQuery = wasteSpoilageQuery.eq('branch_id', branchId)
-            const { data: branchWaste } = await branchWasteQuery
-            if (branchWaste) {
-              wasteSpoilage = [...wasteSpoilage, ...branchWaste]
-            }
-          }
+          // Get incoming transfers (to this branch)
+          let incomingTransfersQuery = supabase
+            .from('branch_transfers')
+            .select('quantity')
+            .eq('item_id', itemId)
+            .eq('date', normalizedDate)
+          if (orgId) incomingTransfersQuery = incomingTransfersQuery.eq('organization_id', orgId)
+          if (branchId) incomingTransfersQuery = incomingTransfersQuery.eq('to_branch_id', branchId)
+          const { data: incomingTransfers } = await incomingTransfersQuery
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -156,83 +157,103 @@ function StockAvailabilityDisplay({
             restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
           const totalWasteSpoilage =
             wasteSpoilage?.reduce((sum, ws) => sum + parseFloat(ws.quantity.toString()), 0) || 0
+          const totalOutgoingTransfers =
+            outgoingTransfers?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
+          const totalIncomingTransfers =
+            incomingTransfers?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
 
           // Available stock before this sale
-          const available = openingQty + totalRestocking - totalSales
-          // Closing stock after this sale
-          const closing = openingQty + totalRestocking - salesIncludingNew - totalWasteSpoilage
+          const available =
+            openingQty +
+            totalRestocking +
+            totalIncomingTransfers -
+            totalSales -
+            totalOutgoingTransfers
+          // Closing stock after this sale = Opening + Restocking + Incoming Transfers - Sales - Waste/Spoilage - Outgoing Transfers
+          const closing =
+            openingQty +
+            totalRestocking +
+            totalIncomingTransfers -
+            salesIncludingNew -
+            totalWasteSpoilage -
+            totalOutgoingTransfers
 
           if (isMounted) {
             setAvailableStock(available)
             setClosingStock(closing)
+            const transferInfo =
+              totalIncomingTransfers > 0 || totalOutgoingTransfers > 0
+                ? `, Transfers In: ${totalIncomingTransfers}, Out: ${totalOutgoingTransfers}`
+                : ''
             setStockInfo(
-              `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold: ${totalSales}, Waste/Spoilage: ${totalWasteSpoilage}`
+              `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold: ${totalSales}, Waste/Spoilage: ${totalWasteSpoilage}${transferInfo}`
             )
           }
         } else {
-          // For today's date, prefer NULL branch_id (legacy data), then branch-specific
-          let openingStockQuery = supabase
+          // Get opening stock - prefer branch-specific, fallback to NULL branch_id
+          let branchSpecificQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
-          if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
+          if (orgId) branchSpecificQuery = branchSpecificQuery.eq('organization_id', orgId)
+          if (branchId) branchSpecificQuery = branchSpecificQuery.eq('branch_id', branchId)
+          const { data: branchSpecificData } = await branchSpecificQuery.limit(1)
 
-          // First try to get NULL branch_id (legacy data)
-          let nullBranchQuery = openingStockQuery.is('branch_id', null)
-          const { data: nullBranchData } = await nullBranchQuery.limit(1)
-
-          // If no NULL branch_id found and branchId is provided, try branch-specific
-          let openingStockData = nullBranchData
-          if (!openingStockData && branchId) {
-            const branchQuery = openingStockQuery.eq('branch_id', branchId)
-            const { data: branchData } = await branchQuery.limit(1)
-            openingStockData = branchData
+          // If no branch-specific found, try NULL branch_id as fallback
+          let openingStockData = branchSpecificData
+          if (!openingStockData || openingStockData.length === 0) {
+            let nullBranchQuery = supabase
+              .from('opening_stock')
+              .select('quantity')
+              .eq('item_id', itemId)
+              .eq('date', normalizedDate)
+              .is('branch_id', null)
+            if (orgId) nullBranchQuery = nullBranchQuery.eq('organization_id', orgId)
+            const { data: nullBranchData } = await nullBranchQuery.limit(1)
+            openingStockData = nullBranchData
           }
 
-          // For restocking, prefer NULL branch_id (legacy data), then branch-specific
+          // Get restocking
           let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
+          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
+          const { data: restocking } = await restockingQuery
 
-          // First try NULL branch_id
-          let nullBranchRestockingQuery = restockingQuery.is('branch_id', null)
-          const { data: nullBranchRestocking } = await nullBranchRestockingQuery
-
-          // If branchId provided, also get branch-specific and combine
-          let restocking = nullBranchRestocking || []
-          if (branchId) {
-            const branchRestockingQuery = restockingQuery.eq('branch_id', branchId)
-            const { data: branchRestocking } = await branchRestockingQuery
-            if (branchRestocking) {
-              restocking = [...restocking, ...branchRestocking]
-            }
-          }
-
-          // For waste/spoilage, prefer NULL branch_id (legacy data), then branch-specific
+          // Get waste/spoilage
           let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
+          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
+          const { data: wasteSpoilage } = await wasteSpoilageQuery
 
-          // First try NULL branch_id
-          let nullBranchWasteQuery = wasteSpoilageQuery.is('branch_id', null)
-          const { data: nullBranchWaste } = await nullBranchWasteQuery
+          // Get outgoing transfers (from this branch)
+          let outgoingTransfersQuery = supabase
+            .from('branch_transfers')
+            .select('quantity')
+            .eq('item_id', itemId)
+            .eq('date', normalizedDate)
+          if (orgId) outgoingTransfersQuery = outgoingTransfersQuery.eq('organization_id', orgId)
+          if (branchId)
+            outgoingTransfersQuery = outgoingTransfersQuery.eq('from_branch_id', branchId)
+          const { data: outgoingTransfers } = await outgoingTransfersQuery
 
-          // If branchId provided, also get branch-specific and combine
-          let wasteSpoilage = nullBranchWaste || []
-          if (branchId) {
-            const branchWasteQuery = wasteSpoilageQuery.eq('branch_id', branchId)
-            const { data: branchWaste } = await branchWasteQuery
-            if (branchWaste) {
-              wasteSpoilage = [...wasteSpoilage, ...branchWaste]
-            }
-          }
+          // Get incoming transfers (to this branch)
+          let incomingTransfersQuery = supabase
+            .from('branch_transfers')
+            .select('quantity')
+            .eq('item_id', itemId)
+            .eq('date', normalizedDate)
+          if (orgId) incomingTransfersQuery = incomingTransfersQuery.eq('organization_id', orgId)
+          if (branchId) incomingTransfersQuery = incomingTransfersQuery.eq('to_branch_id', branchId)
+          const { data: incomingTransfers } = await incomingTransfersQuery
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -241,17 +262,36 @@ function StockAvailabilityDisplay({
             restocking?.reduce((sum, r) => sum + parseFloat(r.quantity.toString()), 0) || 0
           const totalWasteSpoilage =
             wasteSpoilage?.reduce((sum, ws) => sum + parseFloat(ws.quantity.toString()), 0) || 0
+          const totalOutgoingTransfers =
+            outgoingTransfers?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
+          const totalIncomingTransfers =
+            incomingTransfers?.reduce((sum, t) => sum + parseFloat(t.quantity.toString()), 0) || 0
 
           // Available stock before this sale
-          const available = openingQty + totalRestocking - totalSales
-          // Closing stock after this sale
-          const closing = openingQty + totalRestocking - salesIncludingNew - totalWasteSpoilage
+          const available =
+            openingQty +
+            totalRestocking +
+            totalIncomingTransfers -
+            totalSales -
+            totalOutgoingTransfers
+          // Closing stock after this sale = Opening + Restocking + Incoming Transfers - Sales - Waste/Spoilage - Outgoing Transfers
+          const closing =
+            openingQty +
+            totalRestocking +
+            totalIncomingTransfers -
+            salesIncludingNew -
+            totalWasteSpoilage -
+            totalOutgoingTransfers
 
           if (isMounted) {
             setAvailableStock(available)
             setClosingStock(closing)
+            const transferInfo =
+              totalIncomingTransfers > 0 || totalOutgoingTransfers > 0
+                ? `, Transfers In: ${totalIncomingTransfers}, Out: ${totalOutgoingTransfers}`
+                : ''
             setStockInfo(
-              `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSales}, Waste/Spoilage: ${totalWasteSpoilage}`
+              `Opening: ${openingQty}, Restocked: ${totalRestocking}, Sold today: ${totalSales}, Waste/Spoilage: ${totalWasteSpoilage}${transferInfo}`
             )
           }
         }
@@ -403,7 +443,8 @@ export default function SalesForm() {
         return
       }
 
-      await fetchOpeningStockFromStore(dateStr, organizationId, branchId)
+      // Force refresh to get latest data after SQL fixes
+      await fetchOpeningStockFromStore(dateStr, organizationId, branchId, true)
 
       // Check for errors after fetch
       if (isPastDate && openingStocks.length === 0) {
@@ -496,6 +537,7 @@ export default function SalesForm() {
               body: JSON.stringify({
                 date: todayStr,
                 user_id: user.id,
+                branch_id: branchId, // Pass selected branch for admins
               }),
             })
 
@@ -1293,104 +1335,128 @@ export default function SalesForm() {
                   No opening stock found for this date. Please record opening stock first.
                 </option>
               )
-            ) : items.length > 0 ? (
-              items.map(item => {
+            ) : openingStocks.length > 0 ? (
+              // Only show items that have opening stock for this date
+              (() => {
                 const normalizedDate = normalizeDate(date)
 
-                // Opening stock from store (includes NULL branch_id as fallback)
-                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
-                // This is because the migration created incorrect branch-specific records
-                // Once database is cleaned up, we can switch back to preferring branch-specific
-                const nullBranchOpeningStock = openingStocks.find(os => {
+                // Filter opening stocks by date - prefer branch-specific, include NULL as fallback
+                const relevantOpeningStocks = openingStocks.filter(os => {
                   const osDate = normalizeDate(os.date)
-                  return (
-                    os.item_id === item.id && osDate === normalizedDate && os.branch_id === null
-                  )
+                  if (branchId) {
+                    // Include branch-specific AND NULL branch_id (for fallback)
+                    return (
+                      osDate === normalizedDate &&
+                      (os.branch_id === branchId || os.branch_id === null)
+                    )
+                  }
+                  // Only include NULL branch_id when no branchId is set
+                  return osDate === normalizedDate && os.branch_id === null
                 })
-                const branchSpecificOpeningStock =
-                  branchId && !nullBranchOpeningStock
-                    ? openingStocks.find(os => {
-                        const osDate = normalizeDate(os.date)
-                        return (
-                          os.item_id === item.id &&
-                          osDate === normalizedDate &&
-                          os.branch_id === branchId
-                        )
-                      })
-                    : null
-                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
-                const itemOpeningStock = nullBranchOpeningStock || branchSpecificOpeningStock
-                const openingQty = itemOpeningStock
-                  ? parseFloat(itemOpeningStock.quantity.toString())
-                  : 0
 
-                // Restocking from store (includes NULL branch_id as fallback)
-                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
-                const nullBranchRestocking = restockings.filter(r => {
-                  const restockDate = normalizeDate(r.date)
-                  return (
-                    r.item_id === item.id && restockDate === normalizedDate && r.branch_id === null
-                  )
+                // Get unique items from opening stocks - prefer branch-specific over NULL
+                const itemMap = new Map<string, (typeof relevantOpeningStocks)[0]>()
+                relevantOpeningStocks.forEach(os => {
+                  if (!os.item) return
+                  const existing = itemMap.get(os.item.id)
+                  // Prefer branch-specific over NULL branch_id
+                  if (!existing || (os.branch_id === branchId && existing.branch_id !== branchId)) {
+                    itemMap.set(os.item.id, os)
+                  }
                 })
-                const branchSpecificRestocking = branchId
-                  ? restockings.filter(r => {
-                      const restockDate = normalizeDate(r.date)
-                      return (
-                        r.item_id === item.id &&
-                        restockDate === normalizedDate &&
-                        r.branch_id === branchId
-                      )
-                    })
-                  : []
-                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
-                const itemRestocking =
-                  nullBranchRestocking.length > 0 ? nullBranchRestocking : branchSpecificRestocking
-                const totalRestocking = itemRestocking.reduce(
-                  (sum, r) => sum + parseFloat(r.quantity.toString()),
-                  0
-                )
 
-                // Sales from store (includes NULL branch_id as fallback)
-                // IMPORTANT: Prefer NULL branch_id records (legacy correct data) over branch-specific ones
-                const nullBranchSales = sales.filter(s => {
-                  const saleDate = normalizeDate(s.date)
-                  return (
-                    s.item_id === item.id && saleDate === normalizedDate && s.branch_id === null
-                  )
-                })
-                const branchSpecificSales = branchId
-                  ? sales.filter(s => {
-                      const saleDate = normalizeDate(s.date)
-                      return (
-                        s.item_id === item.id &&
-                        saleDate === normalizedDate &&
-                        s.branch_id === branchId
-                      )
-                    })
-                  : []
-                // Prefer NULL branch_id (correct legacy data), fallback to branch-specific
-                const itemSales = nullBranchSales.length > 0 ? nullBranchSales : branchSpecificSales
-                const totalSales = itemSales.reduce((sum, s) => {
-                  if (editingSale && s.id === editingSale.id) return sum
-                  return sum + parseFloat(s.quantity.toString())
-                }, 0)
+                return Array.from(itemMap.values())
+                  .map(openingStock => {
+                    const item = openingStock.item
+                    if (!item) return null
 
-                const available = Math.max(0, openingQty + totalRestocking - totalSales)
+                    // Use the selected opening stock record (prefers branch-specific if available)
+                    // This ensures we show branch-specific quantity (43) when it exists,
+                    // but still show items even if only NULL branch_id exists
+                    const openingQty = parseFloat(openingStock.quantity.toString())
 
-                const displayText =
-                  totalRestocking > 0
-                    ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
-                    : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
+                    // Restocking from store - prefer branch-specific, fallback to NULL branch_id
+                    const branchSpecificRestocking = branchId
+                      ? restockings.filter(r => {
+                          const restockDate = normalizeDate(r.date)
+                          return (
+                            r.item_id === item.id &&
+                            restockDate === normalizedDate &&
+                            r.branch_id === branchId
+                          )
+                        })
+                      : []
+                    const nullBranchRestocking =
+                      branchSpecificRestocking.length === 0
+                        ? restockings.filter(r => {
+                            const restockDate = normalizeDate(r.date)
+                            return (
+                              r.item_id === item.id &&
+                              restockDate === normalizedDate &&
+                              r.branch_id === null
+                            )
+                          })
+                        : []
+                    // Prefer branch-specific restocking, fallback to NULL branch_id (legacy data)
+                    const itemRestocking =
+                      branchSpecificRestocking.length > 0
+                        ? branchSpecificRestocking
+                        : nullBranchRestocking
+                    const totalRestocking = itemRestocking.reduce(
+                      (sum, r) => sum + parseFloat(r.quantity.toString()),
+                      0
+                    )
 
-                return (
-                  <option key={item.id} value={item.id}>
-                    {displayText}
-                  </option>
-                )
-              })
+                    // Sales from store - prefer branch-specific, fallback to NULL branch_id
+                    const branchSpecificSales = branchId
+                      ? sales.filter(s => {
+                          const saleDate = normalizeDate(s.date)
+                          return (
+                            s.item_id === item.id &&
+                            saleDate === normalizedDate &&
+                            s.branch_id === branchId
+                          )
+                        })
+                      : []
+                    const nullBranchSales =
+                      branchSpecificSales.length === 0
+                        ? sales.filter(s => {
+                            const saleDate = normalizeDate(s.date)
+                            return (
+                              s.item_id === item.id &&
+                              saleDate === normalizedDate &&
+                              s.branch_id === null
+                            )
+                          })
+                        : []
+                    // Prefer branch-specific sales, fallback to NULL branch_id (legacy data)
+                    const itemSales =
+                      branchSpecificSales.length > 0 ? branchSpecificSales : nullBranchSales
+                    const totalSales = itemSales.reduce((sum, s) => {
+                      if (editingSale && s.id === editingSale.id) return sum
+                      return sum + parseFloat(s.quantity.toString())
+                    }, 0)
+
+                    // Available stock = Opening + Restocking - Sales
+                    // Note: Transfers are included in the detailed StockAvailabilityDisplay component after item selection
+                    const available = Math.max(0, openingQty + totalRestocking - totalSales)
+
+                    const displayText =
+                      totalRestocking > 0
+                        ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
+                        : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
+
+                    return (
+                      <option key={item.id} value={item.id}>
+                        {displayText}
+                      </option>
+                    )
+                  })
+                  .filter(Boolean) // Remove null entries
+              })()
             ) : (
               <option value="" disabled>
-                No items found. Please add items first.
+                No opening stock found for this date. Please record opening stock first.
               </option>
             )}
           </select>
@@ -1402,7 +1468,16 @@ export default function SalesForm() {
                   await fetchItemsFromStore(organizationId)
                 }
                 await fetchSalesCallback()
-                await fetchOpeningStockCallback()
+                // Force refresh opening stock to get latest data
+                const dateStr = date.includes('T')
+                  ? date.split('T')[0]
+                  : date.includes('/')
+                    ? (() => {
+                        const parts = date.split('/')
+                        return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : date
+                      })()
+                    : date
+                await fetchOpeningStockFromStore(dateStr, organizationId, branchId, true)
                 await fetchRestockingCallback()
                 setMessage({ type: 'success', text: 'Items list refreshed!' })
                 setTimeout(() => setMessage(null), 2000)

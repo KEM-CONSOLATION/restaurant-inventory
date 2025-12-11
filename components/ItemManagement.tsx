@@ -117,6 +117,22 @@ export default function ItemManagement() {
         if (initialQuantity > 0 && insertedItem) {
           const today = new Date().toISOString().split('T')[0]
 
+          // Get branch_id: use provided branchId, or get main branch for organization
+          let finalBranchId = branchId
+          if (!finalBranchId && profile?.organization_id) {
+            // If no branchId, get organization's main branch
+            const { data: mainBranch } = await supabase
+              .from('branches')
+              .select('id')
+              .eq('organization_id', profile.organization_id)
+              .eq('is_active', true)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .single()
+
+            finalBranchId = mainBranch?.id || null
+          }
+
           // Create opening stock record
           const openingStockData = {
             item_id: insertedItem.id,
@@ -126,7 +142,7 @@ export default function ItemManagement() {
             date: today,
             recorded_by: user.id,
             organization_id: profile?.organization_id || null,
-            branch_id: branchId || null,
+            branch_id: finalBranchId,
             notes: 'Auto-created opening stock when item was added',
           }
 

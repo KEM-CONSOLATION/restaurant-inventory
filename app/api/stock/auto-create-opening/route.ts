@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { date, user_id } = body
+    const { date, user_id, branch_id: providedBranchId } = body
 
     if (!date || !user_id) {
       return NextResponse.json({ error: 'Missing date or user_id' }, { status: 400 })
@@ -28,8 +28,34 @@ export async function POST(request: NextRequest) {
       .single()
 
     const organizationId = profile?.organization_id || null
-    const branchId =
-      profile?.role === 'admin' && !profile?.branch_id ? null : profile?.branch_id || null
+
+    // Determine branch_id:
+    // 1. Use provided branch_id if given (for admins with branch selected)
+    // 2. Use profile.branch_id if user has one (for branch managers/staff)
+    // 3. For admins without branch_id: get organization's main branch
+    // 4. Only use null if organization has no branches (new onboarding)
+    let branchId: string | null = null
+    if (providedBranchId) {
+      // Branch explicitly provided (admin with branch selected)
+      branchId = providedBranchId
+    } else if (profile?.branch_id) {
+      // User has a branch_id in profile (branch manager/staff)
+      branchId = profile.branch_id
+    } else if (profile?.role === 'admin' && !profile?.branch_id && organizationId) {
+      // Admin with no branch_id - try to get organization's main branch
+      const { data: mainBranch } = await supabaseAdmin
+        .from('branches')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      branchId = mainBranch?.id || null
+      // If no branches exist yet (new onboarding), branch_id will be null
+      // This is acceptable for new businesses that haven't created branches yet
+    }
 
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]
@@ -46,15 +72,13 @@ export async function POST(request: NextRequest) {
     prevDate.setDate(prevDate.getDate() - 1)
     const prevDateStr = prevDate.toISOString().split('T')[0]
 
-    // Helper functions to add filters
+    // Helper function to add organization filter
     const addOrgFilter = (query: any) =>
       organizationId ? query.eq('organization_id', organizationId) : query
-    const addBranchFilter = (query: any) =>
-      branchId !== null && branchId !== undefined ? query.eq('branch_id', branchId) : query
 
     // Get all items for this organization
     let itemsQuery = supabaseAdmin.from('items').select('*').order('name')
-    itemsQuery = addBranchFilter(addOrgFilter(itemsQuery))
+    itemsQuery = addOrgFilter(itemsQuery)
 
     const { data: items, error: itemsError } = await itemsQuery
 
@@ -67,7 +91,7 @@ export async function POST(request: NextRequest) {
       .from('closing_stock')
       .select('item_id, quantity')
       .eq('date', prevDateStr)
-    prevClosingStockQuery = addBranchFilter(addOrgFilter(prevClosingStockQuery))
+    prevClosingStockQuery = addOrgFilter(prevClosingStockQuery)
     const { data: prevClosingStock } = await prevClosingStockQuery
 
     // Get latest restocking prices for each item (to use for next day's opening stock)
@@ -78,7 +102,7 @@ export async function POST(request: NextRequest) {
       .lte('date', prevDateStr) // All restocking up to and including previous day
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-    latestRestockingQuery = addBranchFilter(addOrgFilter(latestRestockingQuery))
+    latestRestockingQuery = addOrgFilter(latestRestockingQuery)
     const { data: allRestockings } = await latestRestockingQuery
 
     // Group by item_id and get the most recent restocking for each item
@@ -102,7 +126,7 @@ export async function POST(request: NextRequest) {
       .from('opening_stock')
       .select('item_id')
       .eq('date', date)
-    existingOpeningStockQuery = addBranchFilter(addOrgFilter(existingOpeningStockQuery))
+    existingOpeningStockQuery = addOrgFilter(existingOpeningStockQuery)
     const { data: existingOpeningStock } = await existingOpeningStockQuery
 
     const existingItemIds = new Set(existingOpeningStock?.map(os => os.item_id) || [])
@@ -112,7 +136,7 @@ export async function POST(request: NextRequest) {
       .from('opening_stock')
       .select('item_id, cost_price, selling_price')
       .eq('date', prevDateStr)
-    prevOpeningStockQuery = addBranchFilter(addOrgFilter(prevOpeningStockQuery))
+    prevOpeningStockQuery = addOrgFilter(prevOpeningStockQuery)
     const { data: prevOpeningStock } = await prevOpeningStockQuery
 
     // Create a map of previous day's opening stock prices by item_id

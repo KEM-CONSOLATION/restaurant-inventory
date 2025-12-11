@@ -253,26 +253,37 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       const prevDay = String(dateObj.getDate()).padStart(2, '0')
       const prevDateStr = `${prevYear}-${prevMonth}-${prevDay}`
 
-      const { data: prevClosingStock } = await supabase
+      let prevClosingStockQuery = supabase
         .from('closing_stock')
         .select('item_id, quantity')
         .eq('date', prevDateStr)
+      if (organizationId)
+        prevClosingStockQuery = prevClosingStockQuery.eq('organization_id', organizationId)
+      const { data: prevClosingStock } = await prevClosingStockQuery
 
       if (!prevClosingStock || prevClosingStock.length === 0) {
         return { success: true, updated: 0 }
       }
 
-      const { data: currentOpeningStock } = await supabase
+      let currentOpeningStockQuery = supabase
         .from('opening_stock')
         .select('item_id, quantity, cost_price, selling_price')
         .eq('date', dateStr)
+      if (organizationId)
+        currentOpeningStockQuery = currentOpeningStockQuery.eq('organization_id', organizationId)
+      const { data: currentOpeningStock } = await currentOpeningStockQuery
 
-      const { data: prevOpeningStock } = await supabase
+      let prevOpeningStockQuery = supabase
         .from('opening_stock')
         .select('item_id, cost_price, selling_price')
         .eq('date', prevDateStr)
+      if (organizationId)
+        prevOpeningStockQuery = prevOpeningStockQuery.eq('organization_id', organizationId)
+      const { data: prevOpeningStock } = await prevOpeningStockQuery
 
-      const { data: items } = await supabase.from('items').select('*').order('name')
+      let itemsQuery = supabase.from('items').select('*').order('name')
+      if (organizationId) itemsQuery = itemsQuery.eq('organization_id', organizationId)
+      const { data: items } = await itemsQuery
 
       if (!items) return { success: false, error: new Error('Items not found') }
 
@@ -440,19 +451,44 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
       } = await supabase.auth.getUser()
       if (!user) return
 
-      // Check if opening stock already exists for this date
-      const { data: existingOpening } = await supabase
+      // Get user's branch_id from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('branch_id, role, organization_id')
+        .eq('id', user.id)
+        .single()
+
+      // Determine branch_id:
+      // For admins: use null (organization-wide) unless they have a branch_id
+      // For branch managers/staff: use their branch_id
+      const branchId =
+        profile?.role === 'admin' && !profile?.branch_id ? null : profile?.branch_id || null
+
+      // Check if opening stock already exists for this date and branch
+      let existingOpeningQuery = supabase
         .from('opening_stock')
         .select('id')
         .eq('date', selectedDate)
-        .limit(1)
+      if (profile?.organization_id) {
+        existingOpeningQuery = existingOpeningQuery.eq('organization_id', profile.organization_id)
+      }
+      if (branchId) {
+        existingOpeningQuery = existingOpeningQuery.eq('branch_id', branchId)
+      } else {
+        existingOpeningQuery = existingOpeningQuery.is('branch_id', null)
+      }
+      const { data: existingOpening } = await existingOpeningQuery.limit(1)
 
-      // Only auto-create if no opening stock exists yet
+      // Only auto-create if no opening stock exists yet for this branch
       if (!existingOpening || existingOpening.length === 0) {
         const response = await fetch('/api/stock/auto-create-opening', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date: selectedDate, user_id: user.id }),
+          body: JSON.stringify({
+            date: selectedDate,
+            user_id: user.id,
+            branch_id: branchId,
+          }),
         })
 
         const result = await response.json()

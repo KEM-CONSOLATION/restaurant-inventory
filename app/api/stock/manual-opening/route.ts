@@ -28,8 +28,29 @@ export async function POST(request: NextRequest) {
       .single()
 
     const organizationId = profile?.organization_id || null
-    const branchId =
-      profile?.role === 'admin' && !profile?.branch_id ? null : profile?.branch_id || null
+
+    // Determine branch_id:
+    // 1. Use profile.branch_id if user has one (for branch managers/staff)
+    // 2. For admins without branch_id: get organization's main branch
+    // 3. Only use null if organization has no branches (new onboarding)
+    let branchId: string | null = null
+    if (profile?.branch_id) {
+      branchId = profile.branch_id
+    } else if (profile?.role === 'admin' && !profile?.branch_id && organizationId) {
+      // Admin with no branch_id - try to get organization's main branch
+      const { data: mainBranch } = await supabaseAdmin
+        .from('branches')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+
+      branchId = mainBranch?.id || null
+      // If no branches exist yet (new onboarding), branch_id will be null
+      // This is acceptable for new businesses that haven't created branches yet
+    }
 
     // Reject future dates
     const today = new Date().toISOString().split('T')[0]

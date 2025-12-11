@@ -25,7 +25,8 @@ interface StockState {
   fetchOpeningStock: (
     date: string,
     organizationId: string | null,
-    branchId?: string | null
+    branchId?: string | null,
+    forceRefresh?: boolean
   ) => Promise<void>
   fetchClosingStock: (
     date: string,
@@ -73,13 +74,15 @@ export const useStockStore = create<StockState>((set, get) => ({
   fetchOpeningStock: async (
     date: string,
     organizationId: string | null,
-    branchId?: string | null
+    branchId?: string | null,
+    forceRefresh?: boolean
   ) => {
     const state = get()
     const now = Date.now()
 
-    // Return cached data if still fresh and same date
+    // Return cached data if still fresh and same date (unless force refresh)
     if (
+      !forceRefresh &&
       state.lastFetched.opening &&
       state.lastFetchedDate.opening === date &&
       now - state.lastFetched.opening < CACHE_DURATION &&
@@ -110,9 +113,14 @@ export const useStockStore = create<StockState>((set, get) => ({
       }
 
       // Filter by branch_id if provided
-      // Include null branch_id records (legacy data) as fallback
+      // Include both branch-specific AND NULL branch_id records when branchId exists
+      // This allows fallback to NULL records if branch-specific doesn't exist
+      // Components will prefer branch-specific when displaying
       if (branchId !== undefined && branchId !== null) {
         query = query.or(`branch_id.eq.${branchId},branch_id.is.null`)
+      } else {
+        // Only fetch NULL branch_id when no branchId is set
+        query = query.is('branch_id', null)
       }
 
       const { data, error } = await query
