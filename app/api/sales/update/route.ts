@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
 import { sanitizeDescription } from '@/lib/utils/sanitize'
+import {
+  calculateBillingCharge,
+  getBillingCycleDates,
+  formatDateForDB,
+  type PricingRange,
+} from '@/lib/utils/pricing'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -278,6 +284,90 @@ export async function PUT(request: NextRequest) {
       .select('*')
       .eq('id', sale_id)
       .single()
+
+    // Recalculate billing charge for updated sale
+    try {
+      // Delete old billing charge
+      await supabaseAdmin.from('billing_charges').delete().eq('sale_id', sale_id)
+
+      // Get organization billing cycle
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('billing_cycle')
+        .eq('id', organizationId)
+        .single()
+
+      const billingCycle = org?.billing_cycle || 'monthly'
+
+      // Get active pricing ranges
+      const { data: pricingRanges } = await supabaseAdmin
+        .from('pricing_ranges')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('min_price', { ascending: true })
+
+      if (pricingRanges && pricingRanges.length > 0) {
+        // Calculate new billing charge
+        const charge = calculateBillingCharge(
+          pricePerUnitValue,
+          quantityValue,
+          pricingRanges as PricingRange[]
+        )
+
+        if (charge.totalCharge > 0) {
+          // Get billing cycle dates
+          const saleDate = new Date(date)
+          const cycleDates = getBillingCycleDates(saleDate, billingCycle as 'weekly' | 'monthly')
+
+          // Create new billing charge
+          await supabaseAdmin.from('billing_charges').insert({
+            organization_id: organizationId,
+            sale_id: sale_id,
+            item_price: pricePerUnitValue,
+            quantity: quantityValue,
+            price_per_quantity: charge.pricePerQuantity,
+            total_charge: charge.totalCharge,
+            pricing_range_id: charge.range?.id || null,
+            billing_cycle_start: formatDateForDB(cycleDates.start),
+            billing_cycle_end: formatDateForDB(cycleDates.end),
+          })
+
+          // Update billing cycle total
+          const { data: existingCycle } = await supabaseAdmin
+            .from('billing_cycles')
+            .select('id, total_charges')
+            .eq('organization_id', organizationId)
+            .eq('cycle_start', formatDateForDB(cycleDates.start))
+            .eq('cycle_end', formatDateForDB(cycleDates.end))
+            .single()
+
+          if (existingCycle) {
+            // Recalculate total from all charges
+            const { data: allCharges } = await supabaseAdmin
+              .from('billing_charges')
+              .select('total_charge')
+              .eq('organization_id', organizationId)
+              .eq('billing_cycle_start', formatDateForDB(cycleDates.start))
+              .eq('billing_cycle_end', formatDateForDB(cycleDates.end))
+
+            const newTotal =
+              allCharges?.reduce((sum, c) => sum + parseFloat(c.total_charge.toString()), 0) || 0
+
+            await supabaseAdmin
+              .from('billing_cycles')
+              .update({
+                total_charges: newTotal,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingCycle.id)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to recalculate billing charge:', error)
+      // Don't fail the update if billing calculation fails
+    }
 
     // For past dates: Recalculate closing stock and cascade update opening stock for subsequent days
     if (isPastDate) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { Organization, Profile, Branch } from '@/types/database'
+import PricingConfiguration from './PricingConfiguration'
 
 interface OrganizationMetrics {
   total_items: number
@@ -21,6 +22,7 @@ interface OrganizationWithStaff extends Organization {
   admins?: Profile[]
   branches?: Branch[]
   transfers_count?: number
+  billing_cycle?: string
 }
 
 type SuperAdminTab = 'organizations' | 'create-org' | 'create-admin' | 'all-users' | 'branches'
@@ -35,6 +37,9 @@ export default function SuperAdminView() {
   const [editingBusinessType, setEditingBusinessType] = useState<string | null>(null)
   const [editingStockTimes, setEditingStockTimes] = useState<string | null>(null)
   const [editingSubdomain, setEditingSubdomain] = useState<string | null>(null)
+  const [editingPricing, setEditingPricing] = useState<string | null>(null)
+  const [editingBillingCycle, setEditingBillingCycle] = useState<string | null>(null)
+  const [billingCycleData, setBillingCycleData] = useState({ billing_cycle: 'monthly' })
   const [businessTypeData, setBusinessTypeData] = useState({ business_type: '' })
   const [stockTimesData, setStockTimesData] = useState({ opening_time: '', closing_time: '' })
   const [subdomainData, setSubdomainData] = useState({ subdomain: '' })
@@ -889,6 +894,27 @@ export default function SuperAdminView() {
                             <button
                               onClick={e => {
                                 e.stopPropagation()
+                                setEditingPricing(org.id)
+                              }}
+                              className="px-3 py-1 cursor-pointer text-xs text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
+                            >
+                              Pricing
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                setEditingBillingCycle(org.id)
+                                setBillingCycleData({
+                                  billing_cycle: org.billing_cycle || 'monthly',
+                                })
+                              }}
+                              className="px-3 py-1 cursor-pointer text-xs text-teal-600 hover:text-teal-900 hover:bg-teal-50 rounded transition-colors"
+                            >
+                              Billing Cycle
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
                                 handleDeleteOrganization(org.id, org.name)
                               }}
                               className="px-3 py-1 cursor-pointer text-xs text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
@@ -1221,6 +1247,102 @@ export default function SuperAdminView() {
                                 onClick={() => {
                                   setEditingBranding(null)
                                   setBrandingData({ logo_url: '', brand_color: '' })
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {editingPricing === org.id ? (
+                        <div className="mb-6">
+                          <PricingConfiguration
+                            organizationId={org.id}
+                            organizationName={org.name}
+                            onClose={() => setEditingPricing(null)}
+                          />
+                        </div>
+                      ) : null}
+                      {editingBillingCycle === org.id ? (
+                        <div className="mb-6 p-4 bg-teal-50 rounded-lg">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-4">
+                            Edit Billing Cycle
+                          </h4>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Billing Cycle
+                              </label>
+                              <select
+                                value={billingCycleData.billing_cycle}
+                                onChange={e =>
+                                  setBillingCycleData({
+                                    ...billingCycleData,
+                                    billing_cycle: e.target.value,
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent cursor-pointer"
+                              >
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                              </select>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Choose how often billing charges are calculated and billed
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  setCreating(true)
+                                  setMessage(null)
+
+                                  try {
+                                    const response = await fetch(
+                                      '/api/organizations/billing-cycle',
+                                      {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          organization_id: org.id,
+                                          billing_cycle: billingCycleData.billing_cycle,
+                                        }),
+                                      }
+                                    )
+
+                                    const data = await response.json()
+                                    if (!response.ok)
+                                      throw new Error(
+                                        data.error || 'Failed to update billing cycle'
+                                      )
+
+                                    setMessage({
+                                      type: 'success',
+                                      text: 'Billing cycle updated successfully',
+                                    })
+                                    setEditingBillingCycle(null)
+                                    fetchOrganizations()
+                                  } catch (error) {
+                                    setMessage({
+                                      type: 'error',
+                                      text:
+                                        error instanceof Error
+                                          ? error.message
+                                          : 'Failed to update billing cycle',
+                                    })
+                                  } finally {
+                                    setCreating(false)
+                                  }
+                                }}
+                                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                              >
+                                Save Billing Cycle
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingBillingCycle(null)
+                                  setBillingCycleData({ billing_cycle: 'monthly' })
                                 }}
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
                               >

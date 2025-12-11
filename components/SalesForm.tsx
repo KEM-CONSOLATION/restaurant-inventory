@@ -85,32 +85,69 @@ function StockAvailabilityDisplay({
         const orgId = organizationId
 
         if (isPastDate) {
+          // For opening stock, prefer NULL branch_id (legacy data), then branch-specific
           let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
-          if (branchId) openingStockQuery = openingStockQuery.eq('branch_id', branchId)
-          const { data: openingStockData } = await openingStockQuery.limit(1)
 
+          // First try to get NULL branch_id (legacy data)
+          let nullBranchQuery = openingStockQuery.is('branch_id', null)
+          const { data: nullBranchData } = await nullBranchQuery.limit(1)
+
+          // If no NULL branch_id found and branchId is provided, try branch-specific
+          let openingStockData = nullBranchData
+          if (!openingStockData && branchId) {
+            const branchQuery = openingStockQuery.eq('branch_id', branchId)
+            const { data: branchData } = await branchQuery.limit(1)
+            openingStockData = branchData
+          }
+
+          // For restocking, prefer NULL branch_id (legacy data), then branch-specific
           let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
-          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
-          const { data: restocking } = await restockingQuery
 
+          // First try NULL branch_id
+          let nullBranchRestockingQuery = restockingQuery.is('branch_id', null)
+          const { data: nullBranchRestocking } = await nullBranchRestockingQuery
+
+          // If branchId provided, also get branch-specific and combine
+          let restocking = nullBranchRestocking || []
+          if (branchId) {
+            const branchRestockingQuery = restockingQuery.eq('branch_id', branchId)
+            const { data: branchRestocking } = await branchRestockingQuery
+            if (branchRestocking) {
+              restocking = [...restocking, ...branchRestocking]
+            }
+          }
+
+          // For waste/spoilage, prefer NULL branch_id (legacy data), then branch-specific
           let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
-          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
-          const { data: wasteSpoilage } = await wasteSpoilageQuery
+
+          // First try NULL branch_id
+          let nullBranchWasteQuery = wasteSpoilageQuery.is('branch_id', null)
+          const { data: nullBranchWaste } = await nullBranchWasteQuery
+
+          // If branchId provided, also get branch-specific and combine
+          let wasteSpoilage = nullBranchWaste || []
+          if (branchId) {
+            const branchWasteQuery = wasteSpoilageQuery.eq('branch_id', branchId)
+            const { data: branchWaste } = await branchWasteQuery
+            if (branchWaste) {
+              wasteSpoilage = [...wasteSpoilage, ...branchWaste]
+            }
+          }
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -133,32 +170,69 @@ function StockAvailabilityDisplay({
             )
           }
         } else {
+          // For today's date, prefer NULL branch_id (legacy data), then branch-specific
           let openingStockQuery = supabase
             .from('opening_stock')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) openingStockQuery = openingStockQuery.eq('organization_id', orgId)
-          if (branchId) openingStockQuery = openingStockQuery.eq('branch_id', branchId)
-          const { data: openingStockData } = await openingStockQuery.limit(1)
 
+          // First try to get NULL branch_id (legacy data)
+          let nullBranchQuery = openingStockQuery.is('branch_id', null)
+          const { data: nullBranchData } = await nullBranchQuery.limit(1)
+
+          // If no NULL branch_id found and branchId is provided, try branch-specific
+          let openingStockData = nullBranchData
+          if (!openingStockData && branchId) {
+            const branchQuery = openingStockQuery.eq('branch_id', branchId)
+            const { data: branchData } = await branchQuery.limit(1)
+            openingStockData = branchData
+          }
+
+          // For restocking, prefer NULL branch_id (legacy data), then branch-specific
           let restockingQuery = supabase
             .from('restocking')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) restockingQuery = restockingQuery.eq('organization_id', orgId)
-          if (branchId) restockingQuery = restockingQuery.eq('branch_id', branchId)
-          const { data: restocking } = await restockingQuery
 
+          // First try NULL branch_id
+          let nullBranchRestockingQuery = restockingQuery.is('branch_id', null)
+          const { data: nullBranchRestocking } = await nullBranchRestockingQuery
+
+          // If branchId provided, also get branch-specific and combine
+          let restocking = nullBranchRestocking || []
+          if (branchId) {
+            const branchRestockingQuery = restockingQuery.eq('branch_id', branchId)
+            const { data: branchRestocking } = await branchRestockingQuery
+            if (branchRestocking) {
+              restocking = [...restocking, ...branchRestocking]
+            }
+          }
+
+          // For waste/spoilage, prefer NULL branch_id (legacy data), then branch-specific
           let wasteSpoilageQuery = supabase
             .from('waste_spoilage')
             .select('quantity')
             .eq('item_id', itemId)
             .eq('date', normalizedDate)
           if (orgId) wasteSpoilageQuery = wasteSpoilageQuery.eq('organization_id', orgId)
-          if (branchId) wasteSpoilageQuery = wasteSpoilageQuery.eq('branch_id', branchId)
-          const { data: wasteSpoilage } = await wasteSpoilageQuery
+
+          // First try NULL branch_id
+          let nullBranchWasteQuery = wasteSpoilageQuery.is('branch_id', null)
+          const { data: nullBranchWaste } = await nullBranchWasteQuery
+
+          // If branchId provided, also get branch-specific and combine
+          let wasteSpoilage = nullBranchWaste || []
+          if (branchId) {
+            const branchWasteQuery = wasteSpoilageQuery.eq('branch_id', branchId)
+            const { data: branchWaste } = await branchWasteQuery
+            if (branchWaste) {
+              wasteSpoilage = [...wasteSpoilage, ...branchWaste]
+            }
+          }
 
           const openingStock =
             openingStockData && openingStockData.length > 0 ? openingStockData[0] : null
@@ -1493,7 +1567,8 @@ export default function SalesForm() {
                 <div className="mt-1 space-y-1">
                   {item.selling_price > 0 && (
                     <p className="text-xs text-gray-500">
-                      Selling price: ₦{item.selling_price.toFixed(2)}/{item.unit}
+                      Default selling price: ₦{item.selling_price.toFixed(2)}/{item.unit} (you can
+                      adjust this below)
                     </p>
                   )}
                   <StockAvailabilityDisplay
@@ -1514,6 +1589,9 @@ export default function SalesForm() {
         <div>
           <label htmlFor="price_per_unit" className="block text-sm font-medium text-gray-700 mb-1">
             Price Per Unit (₦)
+            <span className="text-xs text-gray-500 font-normal ml-1">
+              (You can adjust this for customer bargaining)
+            </span>
           </label>
           <input
             id="price_per_unit"
@@ -1525,7 +1603,7 @@ export default function SalesForm() {
             required
             className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 min-h-[44px]"
             placeholder="0.00"
-            aria-label="Price per unit in Nigerian Naira"
+            aria-label="Price per unit in Nigerian Naira (editable for customer bargaining)"
             inputMode="decimal"
           />
           {selectedItem &&
@@ -1533,7 +1611,8 @@ export default function SalesForm() {
               const item = items.find(item => item.id === selectedItem)
               return item && item.selling_price > 0 ? (
                 <p className="mt-1 text-xs text-gray-500">
-                  Default: ₦{item.selling_price.toFixed(2)}/{item.unit}
+                  Default: ₦{item.selling_price.toFixed(2)}/{item.unit} - You can change this price
+                  for negotiated sales
                 </p>
               ) : null
             })()}

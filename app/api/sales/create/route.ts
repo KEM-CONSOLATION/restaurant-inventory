@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { recalculateClosingStock, cascadeUpdateFromDate } from '@/lib/stock-cascade'
 import { sanitizeDescription } from '@/lib/utils/sanitize'
+import {
+  calculateBillingCharge,
+  getBillingCycleDates,
+  formatDateForDB,
+  type PricingRange,
+} from '@/lib/utils/pricing'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -512,6 +518,87 @@ export async function POST(request: NextRequest) {
         console.error('Failed to cascade update after sale:', error)
         // Don't fail the sale if cascade update fails
       }
+    }
+
+    // Calculate and store billing charge
+    try {
+      // Get organization billing cycle
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('billing_cycle')
+        .eq('id', organization_id)
+        .single()
+
+      const billingCycle = org?.billing_cycle || 'monthly'
+
+      // Get active pricing ranges for this organization
+      const { data: pricingRanges } = await supabaseAdmin
+        .from('pricing_ranges')
+        .select('*')
+        .eq('organization_id', organization_id)
+        .eq('is_active', true)
+        .order('min_price', { ascending: true })
+
+      if (pricingRanges && pricingRanges.length > 0) {
+        // Calculate billing charge
+        const charge = calculateBillingCharge(
+          pricePerUnitValue,
+          quantityValue,
+          pricingRanges as PricingRange[]
+        )
+
+        if (charge.totalCharge > 0) {
+          // Get billing cycle dates
+          const saleDate = new Date(date)
+          const cycleDates = getBillingCycleDates(saleDate, billingCycle as 'weekly' | 'monthly')
+
+          // Create billing charge record
+          await supabaseAdmin.from('billing_charges').insert({
+            organization_id: organization_id,
+            sale_id: sale.id,
+            item_price: pricePerUnitValue,
+            quantity: quantityValue,
+            price_per_quantity: charge.pricePerQuantity,
+            total_charge: charge.totalCharge,
+            pricing_range_id: charge.range?.id || null,
+            billing_cycle_start: formatDateForDB(cycleDates.start),
+            billing_cycle_end: formatDateForDB(cycleDates.end),
+          })
+
+          // Update or create billing cycle record
+          const { data: existingCycle } = await supabaseAdmin
+            .from('billing_cycles')
+            .select('id, total_charges')
+            .eq('organization_id', organization_id)
+            .eq('cycle_start', formatDateForDB(cycleDates.start))
+            .eq('cycle_end', formatDateForDB(cycleDates.end))
+            .single()
+
+          if (existingCycle) {
+            // Update existing cycle
+            await supabaseAdmin
+              .from('billing_cycles')
+              .update({
+                total_charges:
+                  parseFloat(existingCycle.total_charges.toString()) + charge.totalCharge,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingCycle.id)
+          } else {
+            // Create new cycle
+            await supabaseAdmin.from('billing_cycles').insert({
+              organization_id: organization_id,
+              cycle_start: formatDateForDB(cycleDates.start),
+              cycle_end: formatDateForDB(cycleDates.end),
+              total_charges: charge.totalCharge,
+              status: 'pending',
+            })
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to calculate billing charge:', error)
+      // Don't fail the sale if billing calculation fails
     }
 
     return NextResponse.json({ success: true, sale })

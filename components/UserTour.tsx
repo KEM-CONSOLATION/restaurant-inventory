@@ -4,6 +4,7 @@ import { useMemo, useEffect, useState } from 'react'
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride'
 import { Profile } from '@/types/database'
 import { markTourCompleted } from '@/lib/utils/cookies'
+import { checkSetupStatus, type SetupStatus } from '@/lib/utils/setup-check'
 
 interface UserTourProps {
   user: Profile
@@ -131,26 +132,42 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [enhancedSteps, setEnhancedSteps] = useState<Step[]>([])
-  const [hasBranches, setHasBranches] = useState(false)
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null)
 
-  // Check if organization has branches
+  // Check setup status
   useEffect(() => {
-    if (!mounted || user.role === 'superadmin') return
+    if (!mounted || user.role === 'superadmin') {
+      setSetupStatus({
+        hasBranches: true,
+        hasItems: true,
+        hasOpeningStock: true,
+        isComplete: true,
+      })
+      return
+    }
 
-    const checkBranches = async () => {
+    const checkSetup = async () => {
       try {
-        const { useBranchStore } = await import('@/lib/stores/branchStore')
-        const { availableBranches } = useBranchStore.getState()
-        setHasBranches(availableBranches.length > 0)
+        const status = await checkSetupStatus(user.organization_id, user.role as string)
+        setSetupStatus(status)
       } catch {
-        // Ignore errors
+        // On error, assume complete
+        setSetupStatus({
+          hasBranches: true,
+          hasItems: true,
+          hasOpeningStock: true,
+          isComplete: true,
+        })
       }
     }
 
-    checkBranches()
-  }, [mounted, user.role])
+    checkSetup()
+  }, [mounted, user.role, user.organization_id])
 
-  const baseStepsList = useMemo(() => getStepsForRole(user, hasBranches), [user, hasBranches])
+  const baseStepsList = useMemo(() => {
+    if (!setupStatus) return []
+    return getStepsForRole(user, setupStatus.hasBranches)
+  }, [user, setupStatus])
 
   // Ensure component only renders on client
   useEffect(() => {
@@ -197,13 +214,58 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
     return ''
   }
 
+  // Filter steps based on what's missing in setup
+  const filteredSteps = useMemo(() => {
+    if (!setupStatus || baseStepsList.length === 0) return []
+
+    // Filter steps based on what needs to be set up
+    return baseStepsList.filter(step => {
+      // If setup is complete, don't show any steps
+      if (setupStatus.isComplete) return false
+
+      // For admins without branches, prioritize branch creation
+      if (
+        (user.role === 'admin' || user.role === 'tenant_admin') &&
+        !setupStatus.hasBranches &&
+        step.target === '[data-tour="nav-branches"]'
+      ) {
+        return true
+      }
+
+      // If branches exist but no items, show item management
+      if (setupStatus.hasBranches && !setupStatus.hasItems) {
+        // Show relevant steps for adding items
+        return (
+          step.target === '[data-tour="nav-items"]' ||
+          step.target === '[data-tour="dashboard-header"]'
+        )
+      }
+
+      // If items exist but no opening stock, show opening stock
+      if (setupStatus.hasItems && !setupStatus.hasOpeningStock) {
+        return (
+          step.target === '[data-tour="nav-opening"]' ||
+          step.target === '[data-tour="dashboard-header"]'
+        )
+      }
+
+      // Show all steps if nothing is set up
+      if (!setupStatus.hasBranches && !setupStatus.hasItems && !setupStatus.hasOpeningStock) {
+        return true
+      }
+
+      // Default: show step
+      return true
+    })
+  }, [baseStepsList, setupStatus, user.role])
+
   // Enhance steps with element text after mount
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || filteredSteps.length === 0) return
 
     // Use setTimeout to defer state update and avoid synchronous setState in effect
     const timeoutId = setTimeout(() => {
-      const enhanced = baseStepsList.map(step => {
+      const enhanced = filteredSteps.map(step => {
         try {
           const element = document.querySelector(step.target as string)
           if (element) {
@@ -225,9 +287,12 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
     }, 0)
 
     return () => clearTimeout(timeoutId)
-  }, [mounted, baseStepsList])
+  }, [mounted, filteredSteps])
 
-  const steps = enhancedSteps.length > 0 ? enhancedSteps : baseStepsList
+  const steps = enhancedSteps.length > 0 ? enhancedSteps : filteredSteps
+
+  // Don't run tour if no steps or setup is complete
+  const shouldRunTour = run && steps.length > 0 && (!setupStatus || !setupStatus.isComplete)
 
   useEffect(() => {
     // Detect mobile screen size
@@ -344,7 +409,7 @@ export default function UserTour({ user, run, onClose }: UserTourProps) {
       `}</style>
       <Joyride
         steps={steps}
-        run={run}
+        run={shouldRunTour}
         continuous
         showSkipButton
         showProgress
