@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Item } from '@/types/database'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 interface LowStockItemWithQuantity extends Item {
   currentQuantity: number
@@ -14,43 +15,36 @@ export default function LowStockAlerts() {
   const [lowStockItems, setLowStockItems] = useState<LowStockItemWithQuantity[]>([])
   const [loading, setLoading] = useState(true)
   const notifiedItemsRef = useRef<Set<string>>(new Set()) // Track items we've already notified about
+  const { organizationId, user } = useAuth() // Use centralized auth instead of fetching
 
   useEffect(() => {
-    fetchLowStockItems()
-    // Refresh every 5 minutes to check for new low stock items
-    const interval = setInterval(fetchLowStockItems, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
+    if (organizationId) {
+      fetchLowStockItems()
+      // Refresh every 5 minutes to check for new low stock items
+      const interval = setInterval(fetchLowStockItems, 5 * 60 * 1000)
+      return () => clearInterval(interval)
+    }
+  }, [organizationId])
 
-  const createNotification = async (item: LowStockItemWithQuantity) => {
+  // Batch create notifications to reduce API calls
+  const createNotificationsBatch = async (items: LowStockItemWithQuantity[]) => {
+    if (!user || !organizationId || items.length === 0) return
+
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile?.organization_id) return
-
-      // Check if we've already notified about this item today
       const today = format(new Date(), 'yyyy-MM-dd')
-      const notificationKey = `${item.id}-${today}`
-      if (notifiedItemsRef.current.has(notificationKey)) {
-        return // Already notified today
-      }
-
-      const response = await fetch('/api/notifications/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const notificationsToCreate = items
+        .filter(item => {
+          const notificationKey = `${item.id}-${today}`
+          if (notifiedItemsRef.current.has(notificationKey)) {
+            return false // Already notified today
+          }
+          notifiedItemsRef.current.add(notificationKey) // Mark as will be notified
+          return true
+        })
+        .map(item => ({
           user_id: user.id,
-          organization_id: profile.organization_id,
-          type: 'low_stock',
+          organization_id: organizationId,
+          type: 'low_stock' as const,
           title: 'Low Stock Alert',
           message: `${item.name} is running low (${item.currentQuantity.toFixed(2)} ${item.unit} remaining). Threshold: ${item.low_stock_threshold || 10} ${item.unit}`,
           action_url: '/dashboard/restocking',
@@ -61,33 +55,40 @@ export default function LowStockAlerts() {
             threshold: item.low_stock_threshold || 10,
             unit: item.unit,
           },
-        }),
+        }))
+
+      if (notificationsToCreate.length === 0) return
+
+      // Batch create all notifications in a single API call
+      const response = await fetch('/api/notifications/create-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications: notificationsToCreate }),
       })
 
-      if (response.ok) {
-        // Mark as notified for today
-        notifiedItemsRef.current.add(notificationKey)
+      if (!response.ok) {
+        // If batch endpoint doesn't exist, fall back to individual calls (but this shouldn't happen)
+        console.warn('Batch notification creation failed, falling back to individual calls')
+        for (const notification of notificationsToCreate) {
+          await fetch('/api/notifications/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(notification),
+          })
+        }
       }
     } catch (error) {
-      console.error('Error creating notification:', error)
+      console.error('Error creating notifications:', error)
     }
   }
 
   const fetchLowStockItems = async () => {
+    if (!organizationId) {
+      setLoading(false)
+      return
+    }
+
     try {
-      // Get user's organization_id
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       // Fetch items
       let itemsQuery = supabase.from('items').select('*').order('name')
@@ -168,10 +169,10 @@ export default function LowStockAlerts() {
 
       setLowStockItems(lowStock)
 
-      // Create notifications for new low stock items
-      lowStock.forEach(item => {
-        createNotification(item)
-      })
+      // Batch create notifications for new low stock items (single API call instead of multiple)
+      if (lowStock.length > 0) {
+        createNotificationsBatch(lowStock)
+      }
     } catch (error) {
       console.error('Error fetching low stock items:', error)
     } finally {

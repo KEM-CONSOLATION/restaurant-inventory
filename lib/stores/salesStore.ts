@@ -8,6 +8,7 @@ interface SalesState {
   error: string | null
   lastFetched: number | null
   lastFetchedDate: string | null
+  lastFetchedBranchId: string | null
   fetchSales: (
     date: string,
     organizationId: string | null,
@@ -27,15 +28,18 @@ export const useSalesStore = create<SalesState>((set, get) => ({
   error: null,
   lastFetched: null,
   lastFetchedDate: null,
+  lastFetchedBranchId: null,
 
   fetchSales: async (date: string, organizationId: string | null, branchId?: string | null) => {
     const state = get()
     const now = Date.now()
+    const branchIdKey = branchId || 'null'
 
-    // Return cached data if still fresh and same date
+    // Return cached data if still fresh, same date, AND same branch
     if (
       state.lastFetched &&
       state.lastFetchedDate === date &&
+      state.lastFetchedBranchId === branchIdKey &&
       now - state.lastFetched < CACHE_DURATION &&
       state.sales.length >= 0 &&
       !state.loading
@@ -66,16 +70,16 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       }
 
       // Handle branch_id filtering
-      // After migration, all records should have branch_id, but we keep fallback for safety
+      // When a specific branch is selected, show ONLY that branch's data (no NULL fallback)
+      // This ensures clean branch isolation - each branch sees only its own data
       if (branchId !== undefined && branchId !== null) {
-        // Primary: filter by branch_id
-        // Fallback: also include NULL branch_id (in case migration missed any)
-        salesQuery = salesQuery.or(`branch_id.eq.${branchId},branch_id.is.null`)
+        // Strict filtering: only show data for this specific branch
+        salesQuery = salesQuery.eq('branch_id', branchId)
       } else if (branchId === null) {
-        // Explicitly query for NULL branch_id only
+        // Explicitly query for NULL branch_id only (for organizations without branches yet)
         salesQuery = salesQuery.is('branch_id', null)
       }
-      // If branchId is undefined, don't filter by branch_id at all
+      // If branchId is undefined, don't filter by branch_id at all (show all branches)
 
       const { data, error } = await salesQuery
 
@@ -107,6 +111,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
           loading: false,
           lastFetched: now,
           lastFetchedDate: date,
+          lastFetchedBranchId: branchIdKey,
           error: null,
         })
       } else {
@@ -115,6 +120,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
           loading: false,
           lastFetched: now,
           lastFetchedDate: date,
+          lastFetchedBranchId: branchIdKey,
           error: null,
         })
       }
@@ -156,6 +162,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       error: null,
       lastFetched: null,
       lastFetchedDate: null,
+      lastFetchedBranchId: null,
     })
   },
 }))

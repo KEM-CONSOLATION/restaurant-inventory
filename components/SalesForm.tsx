@@ -397,19 +397,40 @@ export default function SalesForm() {
     !isSuperAdmin &&
     (isAdmin || isStaff || userRole === 'branch_manager' || userRole === 'tenant_admin')
 
-  // Helper function to normalize date format
-  const normalizeDate = useCallback((dateStr: string): string => {
+  // Helper function to normalize date format - handles all possible formats
+  const normalizeDate = useCallback((dateStr: string | Date): string => {
     if (!dateStr) return ''
-    if (dateStr.includes('T')) {
-      return dateStr.split('T')[0]
-    } else if (dateStr.includes('/')) {
-      const parts = dateStr.split('/')
+    
+    // If it's already a Date object, format it
+    if (dateStr instanceof Date) {
+      return format(dateStr, 'yyyy-MM-dd')
+    }
+    
+    let str = String(dateStr).trim()
+    
+    // Handle ISO format with time (2025-12-12T00:00:00.000Z)
+    if (str.includes('T')) {
+      str = str.split('T')[0]
+    }
+    
+    // Handle DD/MM/YYYY format
+    if (str.includes('/')) {
+      const parts = str.split('/')
       if (parts.length === 3) {
         // DD/MM/YYYY to YYYY-MM-DD
-        return `${parts[2]}-${parts[1]}-${parts[0]}`
+        const day = parts[0].padStart(2, '0')
+        const month = parts[1].padStart(2, '0')
+        const year = parts[2]
+        str = `${year}-${month}-${day}`
       }
     }
-    return dateStr
+    
+    // Validate final format (YYYY-MM-DD)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      console.warn('[SalesForm] Invalid date format after normalization:', dateStr, '->', str)
+    }
+    
+    return str
   }, [])
 
   // Fetch sales from store
@@ -1353,35 +1374,144 @@ export default function SalesForm() {
             }`}
           >
             <option value="">Select an item</option>
-            {isPastDate ? (
-              openingStocks.length > 0 ? (
-                openingStocks.map(openingStock => {
+            {(() => {
+              const normalizedDate = normalizeDate(date)
+
+              // Filter opening stocks by date - prefer branch-specific, include NULL as fallback
+              const relevantOpeningStocks = openingStocks.filter(os => {
+                const osDate = normalizeDate(os.date)
+                if (branchId) {
+                  // Include branch-specific AND NULL branch_id (for fallback)
+                  return (
+                    osDate === normalizedDate &&
+                    (os.branch_id === branchId || os.branch_id === null)
+                  )
+                }
+                // Only include NULL branch_id when no branchId is set
+                return osDate === normalizedDate && os.branch_id === null
+              })
+
+              if (relevantOpeningStocks.length === 0) {
+                return (
+                  <option value="" disabled>
+                    No opening stock found for this date. Please record opening stock first.
+                  </option>
+                )
+              }
+
+              // Get unique items from opening stocks - prefer branch-specific over NULL
+              const itemMap = new Map<string, (typeof relevantOpeningStocks)[0]>()
+              relevantOpeningStocks.forEach(os => {
+                if (!os.item) {
+                  console.warn('[SalesForm] Opening stock missing item:', os.id, os.item_id)
+                  return
+                }
+                const existing = itemMap.get(os.item.id)
+                // Prefer branch-specific over NULL branch_id
+                if (!existing || (os.branch_id === branchId && existing.branch_id !== branchId)) {
+                  itemMap.set(os.item.id, os)
+                }
+              })
+
+              // Debug logging
+              if (relevantOpeningStocks.length > 0) {
+                console.log('[SalesForm] Opening stocks for dropdown:', {
+                  relevantOpeningStocks: relevantOpeningStocks.length,
+                  itemsInMap: itemMap.size,
+                  date: normalizedDate,
+                  branchId,
+                })
+              }
+
+              return Array.from(itemMap.values())
+                .map(openingStock => {
                   const item = openingStock.item
                   if (!item) return null
 
-                  const normalizedDate = date.split('T')[0]
+                  // Use the selected opening stock record (prefers branch-specific if available)
+                  // Ensure quantity is parsed correctly (handle string, number, or Decimal types)
+                  let openingQty = 0
+                  if (openingStock.quantity !== null && openingStock.quantity !== undefined) {
+                    const qtyStr = openingStock.quantity.toString()
+                    openingQty = parseFloat(qtyStr) || 0
+                  }
 
-                  // Restocking and sales are already filtered by branch_id in the store
-                  const itemRestocking = restockings.filter(r => {
-                    const restockDate = r.date.split('T')[0]
-                    return r.item_id === item.id && restockDate === normalizedDate
-                  })
+                  // Restocking from store - prefer branch-specific, fallback to NULL branch_id
+                  const branchSpecificRestocking = branchId
+                    ? restockings.filter(r => {
+                        const restockDate = normalizeDate(r.date)
+                        return (
+                          r.item_id === item.id &&
+                          restockDate === normalizedDate &&
+                          r.branch_id === branchId
+                        )
+                      })
+                    : []
+                  const nullBranchRestocking =
+                    branchSpecificRestocking.length === 0
+                      ? restockings.filter(r => {
+                          const restockDate = normalizeDate(r.date)
+                          return (
+                            r.item_id === item.id &&
+                            restockDate === normalizedDate &&
+                            r.branch_id === null
+                          )
+                        })
+                      : []
+                  // Prefer branch-specific restocking, fallback to NULL branch_id (legacy data)
+                  const itemRestocking =
+                    branchSpecificRestocking.length > 0
+                      ? branchSpecificRestocking
+                      : nullBranchRestocking
                   const totalRestocking = itemRestocking.reduce(
-                    (sum, r) => sum + parseFloat(r.quantity.toString()),
+                    (sum, r) => sum + (parseFloat(r.quantity.toString()) || 0),
                     0
                   )
 
-                  const itemSales = sales.filter(s => {
-                    const saleDate = s.date.split('T')[0]
-                    return s.item_id === item.id && saleDate === normalizedDate
-                  })
+                  // Sales from store - prefer branch-specific, fallback to NULL branch_id
+                  const branchSpecificSales = branchId
+                    ? sales.filter(s => {
+                        const saleDate = normalizeDate(s.date)
+                        return (
+                          s.item_id === item.id &&
+                          saleDate === normalizedDate &&
+                          s.branch_id === branchId
+                        )
+                      })
+                    : []
+                  const nullBranchSales =
+                    branchSpecificSales.length === 0
+                      ? sales.filter(s => {
+                          const saleDate = normalizeDate(s.date)
+                          return (
+                            s.item_id === item.id &&
+                            saleDate === normalizedDate &&
+                            s.branch_id === null
+                          )
+                        })
+                      : []
+                  // Prefer branch-specific sales, fallback to NULL branch_id (legacy data)
+                  const itemSales =
+                    branchSpecificSales.length > 0 ? branchSpecificSales : nullBranchSales
                   const totalSales = itemSales.reduce((sum, s) => {
                     if (editingSale && s.id === editingSale.id) return sum
-                    return sum + s.quantity
+                    return sum + (parseFloat(s.quantity.toString()) || 0)
                   }, 0)
 
-                  const openingQty = parseFloat(openingStock.quantity.toString())
+                  // Available stock = Opening + Restocking - Sales
                   const available = Math.max(0, openingQty + totalRestocking - totalSales)
+
+                  // Debug logging for specific items (can be removed later)
+                  if (process.env.NODE_ENV === 'development' && (item.name === 'Garri' || item.name === 'Chicken')) {
+                    console.log(`[SalesForm] ${item.name} calculation:`, {
+                      openingQty,
+                      totalRestocking,
+                      totalSales,
+                      available,
+                      normalizedDate,
+                      branchId,
+                    })
+                  }
 
                   const displayText =
                     totalRestocking > 0
@@ -1394,135 +1524,8 @@ export default function SalesForm() {
                     </option>
                   )
                 })
-              ) : (
-                <option value="" disabled>
-                  No opening stock found for this date. Please record opening stock first.
-                </option>
-              )
-            ) : openingStocks.length > 0 ? (
-              // Only show items that have opening stock for this date
-              (() => {
-                const normalizedDate = normalizeDate(date)
-
-                // Filter opening stocks by date - prefer branch-specific, include NULL as fallback
-                const relevantOpeningStocks = openingStocks.filter(os => {
-                  const osDate = normalizeDate(os.date)
-                  if (branchId) {
-                    // Include branch-specific AND NULL branch_id (for fallback)
-                    return (
-                      osDate === normalizedDate &&
-                      (os.branch_id === branchId || os.branch_id === null)
-                    )
-                  }
-                  // Only include NULL branch_id when no branchId is set
-                  return osDate === normalizedDate && os.branch_id === null
-                })
-
-                // Get unique items from opening stocks - prefer branch-specific over NULL
-                const itemMap = new Map<string, (typeof relevantOpeningStocks)[0]>()
-                relevantOpeningStocks.forEach(os => {
-                  if (!os.item) return
-                  const existing = itemMap.get(os.item.id)
-                  // Prefer branch-specific over NULL branch_id
-                  if (!existing || (os.branch_id === branchId && existing.branch_id !== branchId)) {
-                    itemMap.set(os.item.id, os)
-                  }
-                })
-
-                return Array.from(itemMap.values())
-                  .map(openingStock => {
-                    const item = openingStock.item
-                    if (!item) return null
-
-                    // Use the selected opening stock record (prefers branch-specific if available)
-                    // This ensures we show branch-specific quantity (43) when it exists,
-                    // but still show items even if only NULL branch_id exists
-                    const openingQty = parseFloat(openingStock.quantity.toString())
-
-                    // Restocking from store - prefer branch-specific, fallback to NULL branch_id
-                    const branchSpecificRestocking = branchId
-                      ? restockings.filter(r => {
-                          const restockDate = normalizeDate(r.date)
-                          return (
-                            r.item_id === item.id &&
-                            restockDate === normalizedDate &&
-                            r.branch_id === branchId
-                          )
-                        })
-                      : []
-                    const nullBranchRestocking =
-                      branchSpecificRestocking.length === 0
-                        ? restockings.filter(r => {
-                            const restockDate = normalizeDate(r.date)
-                            return (
-                              r.item_id === item.id &&
-                              restockDate === normalizedDate &&
-                              r.branch_id === null
-                            )
-                          })
-                        : []
-                    // Prefer branch-specific restocking, fallback to NULL branch_id (legacy data)
-                    const itemRestocking =
-                      branchSpecificRestocking.length > 0
-                        ? branchSpecificRestocking
-                        : nullBranchRestocking
-                    const totalRestocking = itemRestocking.reduce(
-                      (sum, r) => sum + parseFloat(r.quantity.toString()),
-                      0
-                    )
-
-                    // Sales from store - prefer branch-specific, fallback to NULL branch_id
-                    const branchSpecificSales = branchId
-                      ? sales.filter(s => {
-                          const saleDate = normalizeDate(s.date)
-                          return (
-                            s.item_id === item.id &&
-                            saleDate === normalizedDate &&
-                            s.branch_id === branchId
-                          )
-                        })
-                      : []
-                    const nullBranchSales =
-                      branchSpecificSales.length === 0
-                        ? sales.filter(s => {
-                            const saleDate = normalizeDate(s.date)
-                            return (
-                              s.item_id === item.id &&
-                              saleDate === normalizedDate &&
-                              s.branch_id === null
-                            )
-                          })
-                        : []
-                    // Prefer branch-specific sales, fallback to NULL branch_id (legacy data)
-                    const itemSales =
-                      branchSpecificSales.length > 0 ? branchSpecificSales : nullBranchSales
-                    const totalSales = itemSales.reduce((sum, s) => {
-                      if (editingSale && s.id === editingSale.id) return sum
-                      return sum + parseFloat(s.quantity.toString())
-                    }, 0)
-
-                    // Available stock = Opening + Restocking - Sales
-                    // Note: Transfers are included in the detailed StockAvailabilityDisplay component after item selection
-                    const available = Math.max(0, openingQty + totalRestocking - totalSales)
-
-                    const displayText =
-                      totalRestocking > 0
-                        ? `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty}, Restocked: ${totalRestocking})`
-                        : `${item.name} (${item.unit}) - Available: ${available > 0 ? available : 0} (Opening Stock: ${openingQty})`
-
-                    return (
-                      <option key={item.id} value={item.id}>
-                        {displayText}
-                      </option>
-                    )
-                  })
-                  .filter(Boolean) // Remove null entries
-              })()
-            ) : (
-              <option value="" disabled>
-                No opening stock found for this date. Please record opening stock first.
-              </option>
-            )}
+                .filter(Boolean) // Remove null entries
+            })()}
           </select>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <button

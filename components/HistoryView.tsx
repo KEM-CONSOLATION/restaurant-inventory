@@ -12,6 +12,7 @@ import {
   formatDate,
 } from '@/lib/export-utils'
 import Pagination from './Pagination'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export default function HistoryView() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -25,62 +26,27 @@ export default function HistoryView() {
   const [sales, setSales] = useState<(Sale & { item?: Item; recorded_by_profile?: Profile })[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'opening' | 'closing' | 'sales'>('opening')
-  const [organization, setOrganization] = useState<Organization | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10 // Reduced to show pagination more readily
+  const { organization, organizationId } = useAuth() // Use centralized auth
 
   useEffect(() => {
-    fetchData()
-    fetchOrganization()
-  }, [startDate, endDate])
+    if (organizationId !== null) {
+      // Only fetch if organizationId is loaded
+      fetchData()
+    }
+  }, [startDate, endDate, organizationId])
 
   // Reset pagination when tab or date range changes
   useEffect(() => {
     setCurrentPage(1)
   }, [activeTab, startDate, endDate])
 
-  const fetchOrganization = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.organization_id) {
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('*')
-            .eq('id', profile.organization_id)
-            .single()
-          setOrganization(org)
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching organization:', error)
-    }
-  }
-
   const fetchData = async () => {
+    if (organizationId === null) return // Wait for auth to load
+
     setLoading(true)
     try {
-      // Get user's organization_id for filtering
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       // Validate date range
       if (startDate > endDate) {

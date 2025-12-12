@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 interface DashboardStatsCardsProps {
   userRole?: string
 }
 
 export default function DashboardStatsCards({ userRole }: DashboardStatsCardsProps) {
+  const { organizationId, branchId } = useAuth()
   const [stats, setStats] = useState({
     openingStockCount: 0,
     closingStockCount: 0,
@@ -24,20 +26,6 @@ export default function DashboardStatsCards({ userRole }: DashboardStatsCardsPro
   const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
-      // Get user's organization_id for filtering
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
-
       // Validate date range
       if (startDate > endDate) {
         setEndDate(startDate)
@@ -52,28 +40,67 @@ export default function DashboardStatsCards({ userRole }: DashboardStatsCardsPro
       }
 
       // Fetch opening stock count for date range
+      // Apply same branch filtering logic as SalesForm: include branch-specific AND NULL branch_id (for fallback)
       let openingQuery = supabase
         .from('opening_stock')
         .select('id')
         .gte('date', startDate)
         .lte('date', endDate)
-      if (organizationId) openingQuery = openingQuery.eq('organization_id', organizationId)
+      
+      if (organizationId) {
+        openingQuery = openingQuery.eq('organization_id', organizationId)
+      }
+      
+      // Apply branch filtering: include branch-specific AND NULL branch_id (for legacy data fallback)
+      if (branchId !== undefined && branchId !== null) {
+        openingQuery = openingQuery.or(`branch_id.eq.${branchId},branch_id.is.null`)
+      } else if (branchId === null) {
+        // Explicitly query for NULL branch_id only (for organizations without branches yet)
+        openingQuery = openingQuery.is('branch_id', null)
+      }
+      
       const { data: openingData } = await openingQuery
 
+      // Fetch closing stock count for date range
+      // Apply same branch filtering logic
       let closingQuery = supabase
         .from('closing_stock')
         .select('id')
         .gte('date', startDate)
         .lte('date', endDate)
-      if (organizationId) closingQuery = closingQuery.eq('organization_id', organizationId)
+      
+      if (organizationId) {
+        closingQuery = closingQuery.eq('organization_id', organizationId)
+      }
+      
+      // Apply branch filtering: include branch-specific AND NULL branch_id (for legacy data fallback)
+      if (branchId !== undefined && branchId !== null) {
+        closingQuery = closingQuery.or(`branch_id.eq.${branchId},branch_id.is.null`)
+      } else if (branchId === null) {
+        closingQuery = closingQuery.is('branch_id', null)
+      }
+      
       const { data: closingData } = await closingQuery
 
+      // Fetch sales for date range
+      // Apply same branch filtering logic
       let salesQuery = supabase
         .from('sales')
         .select('total_price')
         .gte('date', startDate)
         .lte('date', endDate)
-      if (organizationId) salesQuery = salesQuery.eq('organization_id', organizationId)
+      
+      if (organizationId) {
+        salesQuery = salesQuery.eq('organization_id', organizationId)
+      }
+      
+      // Apply branch filtering: strict filtering for sales (only this branch, no NULL fallback)
+      if (branchId !== undefined && branchId !== null) {
+        salesQuery = salesQuery.eq('branch_id', branchId)
+      } else if (branchId === null) {
+        salesQuery = salesQuery.is('branch_id', null)
+      }
+      
       const { data: salesData } = await salesQuery
 
       const salesAmount = salesData?.reduce((sum, sale) => sum + (sale.total_price || 0), 0) || 0
@@ -90,7 +117,7 @@ export default function DashboardStatsCards({ userRole }: DashboardStatsCardsPro
     } finally {
       setLoading(false)
     }
-  }, [startDate, endDate])
+  }, [startDate, endDate, organizationId, branchId])
 
   useEffect(() => {
     fetchStats()

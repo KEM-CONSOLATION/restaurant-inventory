@@ -69,6 +69,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if this is the first branch for this organization
+    const { data: existingBranches } = await supabase
+      .from('branches')
+      .select('id')
+      .eq('organization_id', targetOrganizationId)
+      .limit(1)
+
+    const isFirstBranch = !existingBranches || existingBranches.length === 0
+
     // Create branch
     const { data: branch, error } = await supabase
       .from('branches')
@@ -83,6 +92,35 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // If this is the first branch, automatically assign all NULL branch_id data to it
+    // This ensures existing items/sales/stock created before branches are assigned to the first branch
+    if (isFirstBranch && branch) {
+      const { error: assignError } = await supabase.rpc('assign_null_branch_data', {
+        p_organization_id: targetOrganizationId,
+        p_branch_id: branch.id,
+      })
+
+      // If RPC doesn't exist, do manual updates (fallback)
+      if (assignError) {
+        console.warn('RPC function not found, using manual assignment:', assignError)
+        
+        // Manually assign NULL branch_id records to this branch
+        const tables = ['items', 'opening_stock', 'closing_stock', 'sales', 'expenses', 'restocking', 'waste_spoilage']
+        
+        for (const table of tables) {
+          const { error: updateError } = await supabase
+            .from(table)
+            .update({ branch_id: branch.id })
+            .eq('organization_id', targetOrganizationId)
+            .is('branch_id', null)
+          
+          if (updateError && !updateError.message.includes('does not exist')) {
+            console.warn(`Failed to assign ${table} to branch:`, updateError)
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ branch }, { status: 201 })
   } catch (error) {

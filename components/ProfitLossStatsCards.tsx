@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Sale, Item } from '@/types/database'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export default function ProfitLossStatsCards() {
   const [totalSales, setTotalSales] = useState(0)
@@ -13,52 +14,23 @@ export default function ProfitLossStatsCards() {
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [userRole, setUserRole] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const { organizationId, profile } = useAuth() // Use centralized auth
 
   useEffect(() => {
-    const checkUserRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        if (profile) {
-          setUserRole(profile.role)
-        }
-      }
-    }
-    checkUserRole()
-  }, [])
-
-  useEffect(() => {
-    if (userRole && ['branch_manager', 'admin', 'tenant_admin'].includes(userRole)) {
+    if (organizationId !== null && profile?.role && ['branch_manager', 'admin', 'tenant_admin'].includes(profile.role)) {
       fetchStats()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, userRole])
+  }, [startDate, endDate, organizationId, profile?.role])
 
   const fetchStats = async () => {
+    if (organizationId === null) return // Wait for auth to load
+
     setLoading(true)
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       if (startDate > endDate) {
         setEndDate(startDate)
@@ -143,7 +115,7 @@ export default function ProfitLossStatsCards() {
     }
   }
 
-  if (!userRole || !['branch_manager', 'admin', 'tenant_admin'].includes(userRole)) {
+  if (!profile?.role || !['branch_manager', 'admin', 'tenant_admin'].includes(profile.role)) {
     return null
   }
 

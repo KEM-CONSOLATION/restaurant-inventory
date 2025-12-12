@@ -11,6 +11,7 @@ import {
   formatCurrency,
   formatDate,
 } from '@/lib/export-utils'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export default function ProfitLossView() {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -21,7 +22,6 @@ export default function ProfitLossView() {
   const [totalProfit, setTotalProfit] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
-  const [organization, setOrganization] = useState<Organization | null>(null)
   const [salesDetails, setSalesDetails] = useState<
     Array<{
       item: Item
@@ -33,54 +33,20 @@ export default function ProfitLossView() {
       profit: number
     }>
   >([])
+  const { organization, organizationId } = useAuth() // Use centralized auth
 
   useEffect(() => {
-    calculateProfitLoss()
-    fetchOrganization()
-  }, [startDate, endDate])
-
-  const fetchOrganization = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.organization_id) {
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('*')
-            .eq('id', profile.organization_id)
-            .single()
-          setOrganization(org)
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching organization:', error)
+    if (organizationId !== null) {
+      // Only fetch if organizationId is loaded
+      calculateProfitLoss()
     }
-  }
+  }, [startDate, endDate, organizationId])
 
   const calculateProfitLoss = async () => {
+    if (organizationId === null) return // Wait for auth to load
+
     setLoading(true)
     try {
-      // Get user's organization_id for filtering
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       // Validate date range
       if (startDate > endDate) {

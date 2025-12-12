@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format, subDays } from 'date-fns'
 import Link from 'next/link'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export default function ExpenseStatsCards() {
   const [previousDaySales, setPreviousDaySales] = useState(0)
@@ -12,29 +13,22 @@ export default function ExpenseStatsCards() {
   const [loading, setLoading] = useState(true)
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const { organizationId } = useAuth() // Use centralized auth instead of fetching
 
   useEffect(() => {
-    fetchStats()
-  }, [startDate, endDate])
+    if (organizationId !== null) {
+      // Only fetch if organizationId is loaded (null means not loaded yet, undefined means no org)
+      fetchStats()
+    }
+  }, [startDate, endDate, organizationId])
 
   const fetchStats = async () => {
+    if (organizationId === null) return // Wait for auth to load
+
     setLoading(true)
     const previousDate = format(subDays(new Date(startDate), 1), 'yyyy-MM-dd')
 
     try {
-      // Get user's organization_id for filtering
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       // Fetch previous day sales
       let salesQuery = supabase.from('sales').select('total_price').eq('date', previousDate)

@@ -6,6 +6,7 @@ import { Item } from '@/types/database'
 import { format as formatDate } from 'date-fns'
 import { exportToExcel, exportToPDF, exportToCSV, formatCurrency } from '@/lib/export-utils'
 import Link from 'next/link'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 interface ValuationItem {
   item: Item
@@ -22,55 +23,20 @@ export default function InventoryValuation() {
   const [totalSellingValue, setTotalSellingValue] = useState(0)
   const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date(), 'yyyy-MM-dd'))
-  const [organization, setOrganization] = useState<{ name: string } | null>(null)
+  const { organization, organizationId } = useAuth() // Use centralized auth
 
   useEffect(() => {
-    fetchValuation()
-    fetchOrganization()
-  }, [selectedDate])
-
-  const fetchOrganization = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-
-        if (profile?.organization_id) {
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('name')
-            .eq('id', profile.organization_id)
-            .single()
-          setOrganization(org)
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching organization:', error)
+    if (organizationId !== null) {
+      // Only fetch if organizationId is loaded
+      fetchValuation()
     }
-  }
+  }, [selectedDate, organizationId])
 
   const fetchValuation = async () => {
+    if (organizationId === null) return // Wait for auth to load
+
     setLoading(true)
     try {
-      // Get user's organization_id
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      let organizationId: string | null = null
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single()
-        organizationId = profile?.organization_id || null
-      }
 
       // Fetch items
       let itemsQuery = supabase.from('items').select('*').order('name')

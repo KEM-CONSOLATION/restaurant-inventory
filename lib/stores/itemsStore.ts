@@ -7,6 +7,7 @@ interface ItemsState {
   loading: boolean
   error: string | null
   lastFetched: number | null
+  lastFetchedBranchId: string | null
   fetchItems: (organizationId: string | null, branchId?: string | null) => Promise<void>
   addItem: (item: Item) => void
   updateItem: (itemId: string, updates: Partial<Item>) => void
@@ -21,14 +22,17 @@ export const useItemsStore = create<ItemsState>((set, get) => ({
   loading: false,
   error: null,
   lastFetched: null,
+  lastFetchedBranchId: null,
 
   fetchItems: async (organizationId: string | null, branchId?: string | null) => {
     const state = get()
     const now = Date.now()
+    const branchIdKey = branchId || 'null'
 
-    // Return cached data if still fresh
+    // Return cached data if still fresh AND same branch
     if (
       state.lastFetched &&
+      state.lastFetchedBranchId === branchIdKey &&
       now - state.lastFetched < CACHE_DURATION &&
       state.items.length > 0 &&
       !state.loading
@@ -59,6 +63,7 @@ export const useItemsStore = create<ItemsState>((set, get) => ({
         items: data || [],
         loading: false,
         lastFetched: now,
+        lastFetchedBranchId: branchIdKey,
         error: null,
       })
     } catch (error) {
@@ -97,6 +102,7 @@ export const useItemsStore = create<ItemsState>((set, get) => ({
       loading: false,
       error: null,
       lastFetched: null,
+      lastFetchedBranchId: null,
     })
   },
 }))
