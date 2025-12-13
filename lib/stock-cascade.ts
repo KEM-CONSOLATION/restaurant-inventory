@@ -447,10 +447,12 @@ export async function cascadeUpdateFromDate(
 
     if (openingStockToUpsert.length > 0) {
       // Upsert opening stock for next date
+      // Note: The unique constraint is (item_id, date, organization_id) - NOT including branch_id
+      // So we need to handle branch_id separately by checking for existing records
       const { error: upsertError } = await supabaseAdmin
         .from('opening_stock')
         .upsert(openingStockToUpsert, {
-          onConflict: 'item_id,date,organization_id,branch_id',
+          onConflict: 'item_id,date,organization_id',
         })
 
       if (!upsertError) {

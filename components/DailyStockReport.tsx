@@ -838,7 +838,7 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
                 <p className="text-sm text-blue-800">
                   <strong>Past Date Entry:</strong>{' '}
                   {type === 'opening'
-                    ? 'You can manually enter opening stock values for this date. You can also enter cost price and selling price for historical accuracy, as prices change per day.'
+                    ? 'You can manually enter opening stock quantities, cost prices, and selling prices for this date. After saving, use "Recalculate from Previous Day\'s Closing Stock" to sync with the previous day, or calculate closing stock to cascade updates forward.'
                     : 'Closing stock is automatically calculated from Opening Stock + Restocking - Sales - Waste/Spoilage. Click "Calculate & Save Closing Stock" to recalculate. The next day\'s opening stock will be automatically updated to match this closing stock.'}
                 </p>
               </div>
@@ -847,10 +847,11 @@ export default function DailyStockReport({ type }: { type: 'opening' | 'closing'
               report.report.some(item => item.opening_stock_source === 'zero') && (
                 <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded">
                   <p className="text-sm text-yellow-800">
-                    <strong>Note:</strong> Some items have zero opening stock because no closing
-                    stock was recorded for the previous day. Make sure to save closing stock records
-                    at the end of each day for accurate opening stock calculations. Quantities only
-                    come from opening/closing stock.
+                    <strong>Note:</strong> Some items show zero opening stock because no closing
+                    stock was recorded for the previous day. You can manually enter values above, or
+                    use "Recalculate from Previous Day\'s Closing Stock" to sync with the previous
+                    day. For accurate daily operations, make sure to save closing stock records at
+                    the end of each day.
                   </p>
                 </div>
               )}

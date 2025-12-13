@@ -1328,14 +1328,10 @@ export default function SalesForm() {
 
               setDate(selectedDate)
               setMessage(null)
-
-              // Force refresh opening stock and restocking for the new date
-              // Use async IIFE to properly await all fetches and prevent race conditions
               ;(async () => {
                 const normalizedDate = normalizeDate(selectedDate)
                 if (normalizedDate && /^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
                   try {
-                    // Await all fetches to ensure data is loaded before component re-renders
                     await Promise.all([
                       fetchOpeningStockFromStore(normalizedDate, organizationId, branchId, true),
                       fetchRestockingFromStore(normalizedDate, organizationId, branchId),
@@ -1417,84 +1413,28 @@ export default function SalesForm() {
                 )
               }
 
-              // Get unique items from opening stocks - prefer branch-specific over NULL
               const itemMap = new Map<string, (typeof relevantOpeningStocks)[0]>()
               relevantOpeningStocks.forEach(os => {
                 if (!os.item) {
-                  console.warn('[SalesForm] Opening stock missing item:', os.id, os.item_id)
                   return
                 }
                 const existing = itemMap.get(os.item.id)
-                // Prefer branch-specific over NULL branch_id
                 if (!existing || (os.branch_id === branchId && existing.branch_id !== branchId)) {
                   itemMap.set(os.item.id, os)
                 }
               })
 
-              // Debug logging
-              if (relevantOpeningStocks.length > 0) {
-                console.log('[SalesForm] Opening stocks for dropdown:', {
-                  relevantOpeningStocks: relevantOpeningStocks.length,
-                  itemsInMap: itemMap.size,
-                  date: normalizedDate,
-                  branchId,
-                  sampleQuantities: Array.from(itemMap.values())
-                    .slice(0, 5)
-                    .map(os => ({
-                      item: os.item?.name,
-                      quantity: os.quantity,
-                      branch_id: os.branch_id,
-                      date: os.date,
-                      normalizedDate: normalizeDate(os.date),
-                    })),
-                })
-              } else {
-                console.warn('[SalesForm] No relevant opening stocks found:', {
-                  totalOpeningStocks: openingStocks.length,
-                  selectedDate: date,
-                  normalizedDate,
-                  branchId,
-                  sampleDates: openingStocks.slice(0, 3).map(os => ({
-                    date: os.date,
-                    normalized: normalizeDate(os.date),
-                    branch_id: os.branch_id,
-                  })),
-                })
-              }
-
-              // Sort items: Available stock > 0 first (alphabetically), then zero stock (alphabetically)
               const itemsWithData = Array.from(itemMap.values())
                 .map(openingStock => {
                   const item = openingStock.item
                   if (!item) return null
 
-                  // Use the selected opening stock record (prefers branch-specific if available)
-                  // Ensure quantity is parsed correctly (handle string, number, or Decimal types)
                   let openingQty = 0
                   if (openingStock.quantity !== null && openingStock.quantity !== undefined) {
                     const qtyStr = openingStock.quantity.toString()
                     openingQty = parseFloat(qtyStr) || 0
                   }
 
-                  // Debug: Log if quantity is 0 but opening stock exists
-                  if (
-                    openingQty === 0 &&
-                    openingStock.quantity !== null &&
-                    openingStock.quantity !== undefined
-                  ) {
-                    console.warn(
-                      `[SalesForm] ${item.name} has opening stock record but quantity is 0:`,
-                      {
-                        openingStockId: openingStock.id,
-                        rawQuantity: openingStock.quantity,
-                        parsedQuantity: openingQty,
-                        date: openingStock.date,
-                        branch_id: openingStock.branch_id,
-                      }
-                    )
-                  }
-
-                  // Restocking from store - prefer branch-specific, fallback to NULL branch_id
                   const branchSpecificRestocking = branchId
                     ? restockings.filter(r => {
                         const restockDate = normalizeDate(r.date)
@@ -1516,7 +1456,6 @@ export default function SalesForm() {
                           )
                         })
                       : []
-                  // Prefer branch-specific restocking, fallback to NULL branch_id (legacy data)
                   const itemRestocking =
                     branchSpecificRestocking.length > 0
                       ? branchSpecificRestocking
@@ -1548,7 +1487,6 @@ export default function SalesForm() {
                           )
                         })
                       : []
-                  // Prefer branch-specific sales, fallback to NULL branch_id (legacy data)
                   const itemSales =
                     branchSpecificSales.length > 0 ? branchSpecificSales : nullBranchSales
                   const totalSales = itemSales.reduce((sum, s) => {
@@ -1556,7 +1494,6 @@ export default function SalesForm() {
                     return sum + (parseFloat(s.quantity.toString()) || 0)
                   }, 0)
 
-                  // Available stock = Opening + Restocking - Sales
                   const available = Math.max(0, openingQty + totalRestocking - totalSales)
 
                   // Debug logging for specific items (can be removed later)
@@ -1594,8 +1531,8 @@ export default function SalesForm() {
                     openingStock: (typeof relevantOpeningStocks)[0]
                     available: number
                     displayText: string
-                  } => item !== null
-                ) // Remove null entries with type guard
+                  } => item !== null && item.item !== undefined
+                )
                 .sort((a, b) => {
                   // First, sort by available stock: items with stock > 0 come first
                   if (a.available > 0 && b.available === 0) return -1
